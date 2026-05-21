@@ -1,0 +1,7 @@
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+ See assets/sky_map/stellarium/LICENSE-AGPL-3.0.txt for the full license text.
+
+ This package bundles Stellarium Web Engine (AGPL-3.0) and related sky-map
+ integration code. See THIRD_PARTY_NOTICES.md for attribution details.

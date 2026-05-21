@@ -1,0 +1,38 @@
+name: mlastro_skymap
+description: Flutter package — interactive sky map powered by Stellarium Web Engine (AGPL-3.0).
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.7
+  geolocator: ^14.0.2
+  webview_flutter: ^4.13.0
+  webview_flutter_wkwebview: ^3.23.0
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  archive: ^4.0.7
+  logger: ^2.6.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  config:
+    enable-lldb-debugging: false
+  uses-material-design: true
+  assets:
+    - assets/sky_map/index.html
+    - assets/sky_map/mlastro_sky.js
+    - assets/sky_map/NOTICE
+    - assets/sky_map/stellarium/stellarium-web-engine.js
+    - assets/sky_map/stellarium/stellarium-web-engine.wasm
+    - assets/sky_map/stellarium/skydata.tar.gz
+    - assets/sky_map/stellarium/LICENSE-AGPL-3.0.txt
