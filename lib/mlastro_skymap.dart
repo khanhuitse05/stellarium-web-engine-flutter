@@ -2,6 +2,7 @@
 export 'astro/coordinate_format.dart';
 export 'features/sky_map/logic/sky_map_cubit.dart';
 export 'features/sky_map/logic/sky_map_state.dart';
+export 'features/sky_map/model/sky_map_config.dart';
 export 'features/sky_map/model/sky_map_telescope_position.dart';
 export 'features/sky_map/model/sky_object.dart';
 export 'features/sky_map/model/sky_object_kind.dart';

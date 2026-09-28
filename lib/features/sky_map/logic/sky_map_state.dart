@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 
@@ -7,6 +8,10 @@ final class SkyMapState extends Equatable {
     required this.utc,
     required this.observerLat,
     required this.observerLonEast,
+    this.config = const SkyMapConfig(),
+    this.timeMultiplier = 1.0,
+    this.isTimePaused = false,
+    this.fovDeg = 75.0,
     this.selected,
     this.telescope,
     this.locationReady = false,
@@ -23,6 +28,10 @@ final class SkyMapState extends Equatable {
   final DateTime utc;
   final double observerLat;
   final double observerLonEast;
+  final SkyMapConfig config;
+  final double timeMultiplier;
+  final bool isTimePaused;
+  final double fovDeg;
   final SkyObject? selected;
   final SkyMapTelescopePosition? telescope;
   final bool locationReady;
@@ -33,6 +42,10 @@ final class SkyMapState extends Equatable {
     DateTime? utc,
     double? observerLat,
     double? observerLonEast,
+    SkyMapConfig? config,
+    double? timeMultiplier,
+    bool? isTimePaused,
+    double? fovDeg,
     SkyObject? selected,
     bool clearSelected = false,
     SkyMapTelescopePosition? telescope,
@@ -46,6 +59,10 @@ final class SkyMapState extends Equatable {
       utc: utc ?? this.utc,
       observerLat: observerLat ?? this.observerLat,
       observerLonEast: observerLonEast ?? this.observerLonEast,
+      config: config ?? this.config,
+      timeMultiplier: timeMultiplier ?? this.timeMultiplier,
+      isTimePaused: isTimePaused ?? this.isTimePaused,
+      fovDeg: fovDeg ?? this.fovDeg,
       selected: clearSelected ? null : (selected ?? this.selected),
       telescope: clearTelescope ? null : (telescope ?? this.telescope),
       locationReady: locationReady ?? this.locationReady,
@@ -59,6 +76,10 @@ final class SkyMapState extends Equatable {
         utc,
         observerLat,
         observerLonEast,
+        config,
+        timeMultiplier,
+        isTimePaused,
+        fovDeg,
         selected,
         telescope,
         locationReady,

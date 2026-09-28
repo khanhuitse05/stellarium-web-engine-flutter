@@ -6,4 +6,5 @@ enum SkyObjectKind {
   moon,
   sun,
   dso,
+  constellation,
 }

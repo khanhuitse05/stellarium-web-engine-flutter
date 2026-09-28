@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mlastro_skymap/astro/coordinate_format.dart';
 import 'package:mlastro_skymap/features/sky_map/logic/sky_map_cubit.dart';
 import 'package:mlastro_skymap/features/sky_map/logic/sky_map_state.dart';
+import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 import 'package:mlastro_skymap/features/sky_map/view/open_source_licenses_page.dart';
@@ -22,6 +23,7 @@ class SkyMapPage extends StatelessWidget {
   const SkyMapPage({
     super.key,
     this.createCubit,
+    this.initialConfig,
     this.routeObserver,
     this.onGoto,
     this.showLicensesButton = true,
@@ -30,6 +32,7 @@ class SkyMapPage extends StatelessWidget {
   });
 
   final SkyMapCubitFactory? createCubit;
+  final SkyMapConfig? initialConfig;
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
   final bool showLicensesButton;
@@ -39,7 +42,9 @@ class SkyMapPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => (createCubit?.call() ?? SkyMapCubit())..start(),
+      create: (_) => (createCubit?.call() ??
+          SkyMapCubit(initialConfig: initialConfig))
+        ..start(),
       child: _SkyMapView(
         routeObserver: routeObserver,
         onGoto: onGoto,
@@ -214,6 +219,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                 bottom: 16 + bottomInset,
                 child: SkyObjectPanel(
                   object: selected,
+                  onClose: () => context.read<SkyMapCubit>().deselectObject(),
                   onGoto: onGoto == null
                       ? null
                       : () => onGoto!(context, selected),

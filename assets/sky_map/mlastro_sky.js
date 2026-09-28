@@ -5,6 +5,7 @@
   var stel = null;
   var ready = false;
   var pendingObserver = null;
+  var pendingConfig = null;
   var lastSelectionId = null;
 
   function post(type, payload) {
@@ -63,6 +64,7 @@
         if (data.model === 'jpl_sso' || data.model === 'moon') return 'planet';
         if (data.model === 'dso') return 'dso';
         if (data.model === 'star') return 'star';
+        if (data.model === 'constellation') return 'constellation';
       }
       var names = obj.designations();
       if (names && names.length) {
@@ -81,20 +83,131 @@
     var names = obj.designations();
     var label = cleanupName(names && names.length ? names[0] : '?');
     var obs = stel.core.observer;
-    var cirs = stel.convertFrame(obs, 'ICRF', 'CIRS', obj.getInfo('radec'));
+    var radecInfo = obj.getInfo('radec');
+    if (!radecInfo) return null;
+
+    var cirs = stel.convertFrame(obs, 'ICRF', 'CIRS', radecInfo);
     var radec = stel.c2s(cirs);
     var raRad = stel.anp(radec[0]);
     var decRad = stel.anpm(radec[1]);
     var vmag = obj.getInfo('vmag');
+
+    var altDeg = null;
+    var azDeg = null;
+    try {
+      var observed = stel.convertFrame(obs, 'ICRF', 'OBSERVED', radecInfo);
+      var altaz = stel.c2s(observed);
+      azDeg = stel.anp(altaz[0]) * 180 / Math.PI;
+      altDeg = altaz[1] * 180 / Math.PI;
+    } catch (e) { /* ignore frame conversion error */ }
+
+    var constellation = null;
+    try {
+      constellation = obj.getInfo('constellation');
+    } catch (e) { /* ignore */ }
+
+    var typeDesc = null;
+    try {
+      typeDesc = obj.getInfo('type') || obj.getInfo('morpho');
+    } catch (e) { /* ignore */ }
+
+    var distance = null;
+    try {
+      var d = obj.getInfo('distance');
+      if (typeof d === 'number') distance = d;
+    } catch (e) { /* ignore */ }
+
+    var aliases = [];
+    if (names && names.length) {
+      for (var ni = 0; ni < names.length; ni++) {
+        var clean = cleanupName(names[ni]);
+        if (clean && aliases.indexOf(clean) === -1) {
+          aliases.push(clean);
+        }
+      }
+    }
+
     return {
       kind: inferKind(obj),
       id: (names && names[0]) || label,
       name: label,
       raHours: raRad * 12 / Math.PI,
       decDeg: decRad * 180 / Math.PI,
-      magnitude: typeof vmag === 'number' ? vmag : null
+      magnitude: typeof vmag === 'number' ? vmag : null,
+      altDeg: altDeg,
+      azDeg: azDeg,
+      constellation: constellation,
+      typeDescription: typeDesc,
+      distance: distance,
+      aliases: aliases
     };
   }
+
+  // Famous DSO Nicknames -> Catalog IDs
+  var DSO_NICKNAMES = {
+    'CRAB NEBULA': 'M 1',
+    'LAGOON NEBULA': 'M 8',
+    'WILD DUCK CLUSTER': 'M 11',
+    'HERCULES CLUSTER': 'M 13',
+    'HERCULES GLOBULAR CLUSTER': 'M 13',
+    'EAGLE NEBULA': 'M 16',
+    'SWAN NEBULA': 'M 17',
+    'OMEGA NEBULA': 'M 17',
+    'TRIFID NEBULA': 'M 20',
+    'DUMBBELL NEBULA': 'M 27',
+    'ANDROMEDA': 'M 31',
+    'ANDROMEDA GALAXY': 'M 31',
+    'TRIANGULUM GALAXY': 'M 33',
+    'ORION NEBULA': 'M 42',
+    'DE MAIRAN NEBULA': 'M 43',
+    'BEEHIVE CLUSTER': 'M 44',
+    'PRAESEPE': 'M 44',
+    'PLEIADES': 'M 45',
+    'SEVEN SISTERS': 'M 45',
+    'WHIRLPOOL GALAXY': 'M 51',
+    'RING NEBULA': 'M 57',
+    'SUNFLOWER GALAXY': 'M 63',
+    'BLACK EYE GALAXY': 'M 64',
+    'BODE GALAXY': 'M 81',
+    'BODES GALAXY': 'M 81',
+    'CIGAR GALAXY': 'M 82',
+    'PINWHEEL GALAXY': 'M 101',
+    'SOMBRERO GALAXY': 'M 104'
+  };
+
+  var POPULAR_STARS = [
+    'Sirius', 'Canopus', 'Rigil Kentaurus', 'Arcturus', 'Vega', 'Capella',
+    'Rigel', 'Procyon', 'Achernar', 'Betelgeuse', 'Hadar', 'Altair',
+    'Acrux', 'Aldebaran', 'Antares', 'Spica', 'Pollux', 'Fomalhaut',
+    'Deneb', 'Mimosa', 'Regulus', 'Adhara', 'Castor', 'Gacrux',
+    'Bellatrix', 'Elnath', 'Miaplacidus', 'Alnilam', 'Alnitak', 'Alioth',
+    'Dubhe', 'Mirfak', 'Wezen', 'Sargas', 'Kaus Australis', 'Avior',
+    'Alkaid', 'Menkalinan', 'Atria', 'Alhena', 'Peacock', 'Polaris',
+    'Mirzam', 'Alphard', 'Hamal', 'Algieba', 'Diphda', 'Nunki'
+  ];
+
+  var SOLAR_SYSTEM = [
+    'Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn',
+    'Uranus', 'Neptune', 'Pluto'
+  ];
+
+  var CONSTELLATIONS = [
+    'Andromeda', 'Antlia', 'Apus', 'Aquarius', 'Aquila', 'Ara', 'Aries',
+    'Auriga', 'Bootes', 'Caelum', 'Camelopardalis', 'Cancer', 'Canes Venatici',
+    'Canis Major', 'Canis Minor', 'Capricornus', 'Carina', 'Cassiopeia',
+    'Centaurus', 'Cepheus', 'Cetus', 'Chamaeleon', 'Circinus', 'Columba',
+    'Coma Berenices', 'Corona Australis', 'Corona Borealis', 'Corvus',
+    'Crater', 'Crux', 'Cygnus', 'Delphinus', 'Dorado', 'Draco', 'Equuleus',
+    'Eridanus', 'Fornax', 'Gemini', 'Grus', 'Hercules', 'Horologium',
+    'Hydra', 'Hydrus', 'Indus', 'Lacerta', 'Leo', 'Leo Minor', 'Lepus',
+    'Libra', 'Lupus', 'Lynx', 'Lyra', 'Mensa', 'Microscopium', 'Monoceros',
+    'Musca', 'Norma', 'Octans', 'Ophiuchus', 'Orion', 'Pavo', 'Pegasus',
+    'Perseus', 'Phoenix', 'Pictor', 'Pisces', 'Piscis Austrinus', 'Puppis',
+    'Pyxis', 'Reticulum', 'Sagitta', 'Sagittarius', 'Scorpius', 'Sculptor',
+    'Scutum', 'Serpens', 'Sextans', 'Taurus', 'Telescopium', 'Triangulum',
+    'Triangulum Australe', 'Tucana', 'Ursa Major', 'Ursa Minor', 'Vela',
+    'Virgo', 'Volans', 'Vulpecula'
+  ];
 
   function searchCandidates(query) {
     var raw = (query || '').trim();
@@ -108,6 +221,16 @@
       if (!id || seen[id]) return;
       seen[id] = true;
       out.push(id);
+    }
+
+    // Direct aliases
+    if (DSO_NICKNAMES[upper]) {
+      add(DSO_NICKNAMES[upper]);
+    }
+    for (var nick in DSO_NICKNAMES) {
+      if (nick.indexOf(upper) >= 0 || upper.indexOf(nick) >= 0) {
+        add(DSO_NICKNAMES[nick]);
+      }
     }
 
     add('NAME ' + raw);
@@ -130,15 +253,22 @@
     var hr = compact.match(/^HR(\d+)$/);
     if (hr) add('HR ' + hr[1]);
 
-    [
-      'Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn',
-      'Uranus', 'Neptune', 'Pluto', 'Sirius', 'Vega', 'Polaris',
-      'Betelgeuse', 'Rigel', 'Arcturus', 'Capella', 'Altair', 'Deneb',
-      'Aldebaran', 'Antares', 'Spica', 'Regulus', 'Fomalhaut',
-      'Andromeda Galaxy', 'Orion Nebula', 'Pleiades'
-    ].forEach(function (name) {
-      if (name.toUpperCase().indexOf(upper) >= 0 || upper.indexOf(name.toUpperCase().replace(/\s+/g, '')) >= 0) {
+    SOLAR_SYSTEM.forEach(function (name) {
+      if (name.toUpperCase().indexOf(upper) >= 0 || upper.indexOf(name.toUpperCase()) >= 0) {
         add('NAME ' + name);
+      }
+    });
+
+    POPULAR_STARS.forEach(function (name) {
+      if (name.toUpperCase().indexOf(upper) >= 0 || upper.indexOf(name.toUpperCase()) >= 0) {
+        add('NAME ' + name);
+      }
+    });
+
+    CONSTELLATIONS.forEach(function (name) {
+      if (name.toUpperCase().indexOf(upper) >= 0 || upper.indexOf(name.toUpperCase()) >= 0) {
+        add('NAME ' + name);
+        add(name);
       }
     });
 
@@ -177,8 +307,6 @@
           stel._core_on_mouse(i, 0, 0, 0, 0);
         }
       }
-      // WebKit may synthesize mouse-down without a matching up when a Flutter
-      // modal steals the gesture; release it so pan/zoom works again.
       if (canvas) {
         ['mouseup', 'pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(
           function (type) {
@@ -201,6 +329,86 @@
     var o = pendingObserver;
     pendingObserver = null;
     window.MlastroSky.setObserver(o.lat, o.lon, o.utcIso);
+  }
+
+  function setNightMode(active) {
+    var root = document.getElementById('stel-root');
+    if (!root) return;
+    if (active) {
+      root.classList.add('night-mode');
+    } else {
+      root.classList.remove('night-mode');
+    }
+  }
+
+  function applyConfig(config) {
+    if (!stel || !config) return;
+    try {
+      var core = stel.core;
+      if (!core) return;
+
+      if (config.showConstellationLines !== undefined && core.constellations) {
+        core.constellations.lines_visible = !!config.showConstellationLines;
+      }
+      if (config.showConstellationArt !== undefined && core.constellations) {
+        if ('art_visible' in core.constellations) {
+          core.constellations.art_visible = !!config.showConstellationArt;
+        }
+        if ('images_visible' in core.constellations) {
+          core.constellations.images_visible = !!config.showConstellationArt;
+        }
+      }
+      if (config.showConstellationLabels !== undefined && core.constellations) {
+        core.constellations.labels_visible = !!config.showConstellationLabels;
+      }
+      if (config.showConstellationBoundaries !== undefined && core.constellations) {
+        if ('bounds_visible' in core.constellations) {
+          core.constellations.bounds_visible = !!config.showConstellationBoundaries;
+        }
+      }
+
+      if (core.lines) {
+        if (config.showAzimuthalGrid !== undefined && core.lines.azimuthal) {
+          core.lines.azimuthal.visible = !!config.showAzimuthalGrid;
+        }
+        if (config.showEquatorialGrid !== undefined) {
+          if (core.lines.equatorial_jnow) {
+            core.lines.equatorial_jnow.visible = !!config.showEquatorialGrid;
+          }
+          if (core.lines.equatorial) {
+            core.lines.equatorial.visible = !!config.showEquatorialGrid;
+          }
+        }
+        if (config.showMeridianLine !== undefined && core.lines.meridian) {
+          core.lines.meridian.visible = !!config.showMeridianLine;
+        }
+      }
+
+      if (config.showAtmosphere !== undefined && core.atmosphere) {
+        core.atmosphere.visible = !!config.showAtmosphere;
+      }
+      if (config.showLandscape !== undefined && core.landscapes) {
+        core.landscapes.visible = !!config.showLandscape;
+      }
+      if (config.showMilkyWay !== undefined && core.milkyway) {
+        core.milkyway.visible = !!config.showMilkyWay;
+      }
+      if (config.showStars !== undefined && core.stars) {
+        core.stars.visible = !!config.showStars;
+      }
+      if (config.showDsos !== undefined && core.dsos) {
+        core.dsos.visible = !!config.showDsos;
+      }
+      if (config.showPlanets !== undefined && core.planets) {
+        core.planets.visible = !!config.showPlanets;
+      }
+
+      if (config.nightMode !== undefined) {
+        setNightMode(!!config.nightMode);
+      }
+    } catch (e) {
+      log('applyConfig error: ' + e);
+    }
   }
 
   // FOV limits (degrees). Larger FOV = zoomed out (wider sky).
@@ -236,8 +444,12 @@
     try {
       core.atmosphere.visible = true;
       core.landscapes.visible = true;
-      core.lines.azimuthal.visible = false;
-      core.lines.equatorial.visible = false;
+      if (core.lines) {
+        if (core.lines.azimuthal) core.lines.azimuthal.visible = false;
+        if (core.lines.equatorial_jnow) core.lines.equatorial_jnow.visible = false;
+        if (core.lines.equatorial) core.lines.equatorial.visible = false;
+        if (core.lines.meridian) core.lines.meridian.visible = false;
+      }
       core.constellations.lines_visible = true;
       core.constellations.art_visible = true;
       core.constellations.labels_visible = true;
@@ -365,6 +577,10 @@
           ready = true;
           hideLoading();
           applyPendingObserver();
+          if (pendingConfig) {
+            applyConfig(pendingConfig);
+            pendingConfig = null;
+          }
           post('ready', {});
           log('ready');
         } catch (e) {
@@ -440,6 +656,16 @@
       lastSelectionId = null;
     },
 
+    setConfig: function (config) {
+      if (!ready || !stel) {
+        pendingConfig = config;
+        return;
+      }
+      applyConfig(config);
+    },
+
+    setNightMode: setNightMode,
+
     setObserver: function (lat, lon, utcIso) {
       if (!ready || !stel) {
         pendingObserver = { lat: lat, lon: lon, utcIso: utcIso };
@@ -465,6 +691,39 @@
         stel.lookAt(observed, 0.5);
       } catch (e) {
         showError('centerOn: ' + e);
+      }
+    },
+
+    lookTowards: function (azDeg, altDeg) {
+      if (!ready || !stel) return;
+      try {
+        var azRad = azDeg * Math.PI / 180;
+        var altRad = altDeg * Math.PI / 180;
+        var obsVector = stel.s2c(azRad, altRad);
+        stel.lookAt(obsVector, 0.5);
+      } catch (e) {
+        log('lookTowards: ' + e);
+      }
+    },
+
+    setFov: function (fovDeg) {
+      if (!ready || !stel) return;
+      try {
+        var clamped = Math.max(MIN_FOV_DEG, Math.min(MAX_FOV_DEG, fovDeg));
+        stel.zoomTo(clamped * stel.D2R, 0.3);
+      } catch (e) {
+        log('setFov: ' + e);
+      }
+    },
+
+    zoomBy: function (deltaDeg) {
+      if (!ready || !stel) return;
+      try {
+        var curFovDeg = stel.core.fov / stel.D2R;
+        var target = Math.max(MIN_FOV_DEG, Math.min(MAX_FOV_DEG, curFovDeg + deltaDeg));
+        stel.zoomTo(target * stel.D2R, 0.25);
+      } catch (e) {
+        log('zoomBy: ' + e);
       }
     },
 

@@ -31,6 +31,19 @@
       width: 100%;
       height: 100%;
       display: block;
+      transition: filter 0.3s ease;
+    }
+    #stel-root.night-mode #stel-canvas {
+      filter: sepia(100%) saturate(900%) hue-rotate(315deg) contrast(140%) brightness(0.85);
+    }
+    #stel-root.night-mode::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 0, 0, 0.12);
+      mix-blend-mode: multiply;
+      pointer-events: none;
+      z-index: 1;
     }
     #loading {
       position: absolute;
