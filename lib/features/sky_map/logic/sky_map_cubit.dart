@@ -173,6 +173,22 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _runMapJs('window.MlastroSky.zoomBy(-10);');
   }
 
+  Timer? _statusDismissTimer;
+
+  void clearStatusLine() {
+    _statusDismissTimer?.cancel();
+    emit(state.copyWith(clearStatus: true));
+  }
+
+  void _scheduleStatusDismissal({Duration duration = const Duration(seconds: 6)}) {
+    _statusDismissTimer?.cancel();
+    _statusDismissTimer = Timer(duration, () {
+      if (!isClosed && state.statusLine != null) {
+        emit(state.copyWith(clearStatus: true));
+      }
+    });
+  }
+
   Future<void> zoomOut() async {
     await _runMapJs('window.MlastroSky.zoomBy(10);');
   }
@@ -181,7 +197,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     try {
       final pos = await _location.getCurrentPosition(
         accuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 12),
+        timeLimit: const Duration(seconds: 6),
       );
       if (!isClosed) {
         emit(
@@ -194,15 +210,25 @@ class SkyMapCubit extends Cubit<SkyMapState> {
         );
         await _pushObserverToMap(state.utc);
       }
-    } catch (e) {
+    } on LocationServiceException catch (e) {
       if (!isClosed) {
         emit(
           state.copyWith(
             locationReady: false,
-            statusLine:
-                'Location unavailable — enable location in system settings. ($e)',
+            statusLine: e.message,
           ),
         );
+        _scheduleStatusDismissal();
+      }
+    } catch (_) {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            locationReady: false,
+            statusLine: 'Location unavailable — using default coordinates.',
+          ),
+        );
+        _scheduleStatusDismissal();
       }
     }
   }
@@ -377,6 +403,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   @override
   Future<void> close() async {
     _utcTimer?.cancel();
+    _statusDismissTimer?.cancel();
     await _telescopeSub?.cancel();
     return super.close();
   }

@@ -194,12 +194,10 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
           BlocBuilder<SkyMapCubit, SkyMapState>(
             buildWhen: (prev, next) =>
                 prev.mapReady != next.mapReady ||
-                prev.statusLine != next.statusLine ||
                 prev.config.nightMode != next.config.nightMode,
             builder: (context, state) {
               return SkyMapLoadingOverlay(
                 isReady: state.mapReady,
-                errorMessage: state.statusLine,
                 isNightMode: state.config.nightMode,
                 onRetry: () => _cubit.start(),
               );
@@ -282,16 +280,40 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                 right: 12,
                 bottom: (selected != null ? 168 : 16) + bottomInset,
                 child: Material(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(8),
+                  elevation: 6,
+                  color: const Color(0xF0151C2C),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Colors.white24, width: 1),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Text(
-                      state.statusLine!,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.location_off_rounded,
+                          color: Colors.amberAccent,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            state.statusLine!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => context.read<SkyMapCubit>().clearStatusLine(),
+                          borderRadius: BorderRadius.circular(8),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.close_rounded, size: 16, color: Colors.white54),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
