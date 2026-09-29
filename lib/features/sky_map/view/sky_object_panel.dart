@@ -4,7 +4,7 @@ import 'package:mlastro_skymap/astro/coordinate_format.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object_kind.dart';
 
-class SkyObjectPanel extends StatelessWidget {
+class SkyObjectPanel extends StatefulWidget {
   const SkyObjectPanel({
     required this.object,
     this.onGoto,
@@ -15,6 +15,7 @@ class SkyObjectPanel extends StatelessWidget {
     this.isSlewing = false,
     this.onStop,
     this.slewProgressText,
+    this.expandedBuilder,
     super.key,
   });
 
@@ -27,12 +28,38 @@ class SkyObjectPanel extends StatelessWidget {
   final bool isSlewing;
   final VoidCallback? onStop;
   final String? slewProgressText;
+  final Widget Function(BuildContext context, SkyObject object)? expandedBuilder;
+
+  @override
+  State<SkyObjectPanel> createState() => _SkyObjectPanelState();
+}
+
+class _SkyObjectPanelState extends State<SkyObjectPanel> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant SkyObjectPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.object.id != widget.object.id) {
+      _expanded = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isNight = theme.brightness == Brightness.dark &&
         theme.scaffoldBackgroundColor == Colors.black;
+    final object = widget.object;
+    final isSlewing = widget.isSlewing;
+    final onStop = widget.onStop;
+    final slewProgressText = widget.slewProgressText;
+    final onClose = widget.onClose;
+    final onGoto = widget.onGoto;
+    final onSync = widget.onSync;
+    final onCopyCoordinates = widget.onCopyCoordinates;
+    final onMoreDetails = widget.onMoreDetails;
+    final hasDetails = widget.expandedBuilder != null || widget.onMoreDetails != null;
 
     return Material(
       color: isNight
@@ -194,10 +221,21 @@ class SkyObjectPanel extends StatelessWidget {
                 ],
               ),
             ],
+            if (_expanded && widget.expandedBuilder != null) ...[
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                ),
+                child: SingleChildScrollView(
+                  child: widget.expandedBuilder!(context, object),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Row(
               children: [
-                if (onMoreDetails != null)
+                if (hasDetails)
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -206,18 +244,30 @@ class SkyObjectPanel extends StatelessWidget {
                         side: BorderSide(
                           color: isNight
                               ? Colors.red.withValues(alpha: 0.5)
-                              : Colors.white24,
+                              : (_expanded ? Colors.cyanAccent.withValues(alpha: 0.6) : Colors.white24),
                         ),
-                        foregroundColor:
-                            isNight ? const Color(0xFFFF8888) : Colors.white,
+                        foregroundColor: isNight
+                            ? const Color(0xFFFF8888)
+                            : (_expanded ? Colors.cyanAccent : Colors.white),
                       ),
-                      onPressed: onMoreDetails,
-                      icon: const Icon(Icons.info_outline, size: 16),
-                      label: const Text('Details',
-                          style: TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        if (widget.expandedBuilder != null) {
+                          setState(() => _expanded = !_expanded);
+                        } else {
+                          widget.onMoreDetails?.call();
+                        }
+                      },
+                      icon: Icon(
+                        _expanded ? Icons.expand_less_rounded : Icons.info_outline_rounded,
+                        size: 16,
+                      ),
+                      label: Text(
+                        _expanded ? 'Less' : 'Details',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
-                if (onMoreDetails != null &&
+                if (hasDetails &&
                     (onGoto != null || onCopyCoordinates != null))
                   const SizedBox(width: 8),
                 if (onCopyCoordinates != null)

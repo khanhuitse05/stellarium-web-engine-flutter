@@ -43,6 +43,7 @@ class SkyMapPage extends StatelessWidget {
     this.isSlewing = false,
     this.slewProgressText,
     this.onMoreDetails,
+    this.expandedDetailsBuilder,
     this.toolbarBuilder,
     this.hudBuilder,
     this.overlayBuilder,
@@ -60,6 +61,7 @@ class SkyMapPage extends StatelessWidget {
   final bool isSlewing;
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
+  final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -81,6 +83,7 @@ class SkyMapPage extends StatelessWidget {
         isSlewing: isSlewing,
         slewProgressText: slewProgressText,
         onMoreDetails: onMoreDetails,
+        expandedDetailsBuilder: expandedDetailsBuilder,
         toolbarBuilder: toolbarBuilder,
         hudBuilder: hudBuilder,
         overlayBuilder: overlayBuilder,
@@ -101,6 +104,7 @@ class _SkyMapView extends StatefulWidget {
     required this.isSlewing,
     required this.slewProgressText,
     required this.onMoreDetails,
+    this.expandedDetailsBuilder,
     required this.toolbarBuilder,
     required this.hudBuilder,
     required this.overlayBuilder,
@@ -116,6 +120,7 @@ class _SkyMapView extends StatefulWidget {
   final bool isSlewing;
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
+  final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -198,6 +203,7 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
             isSlewing: widget.isSlewing,
             slewProgressText: widget.slewProgressText,
             onMoreDetails: widget.onMoreDetails,
+            expandedDetailsBuilder: widget.expandedDetailsBuilder,
             hudBuilder: widget.hudBuilder,
             overlayBuilder: widget.overlayBuilder,
             hasCustomToolbar: hasCustomToolbar,
@@ -255,6 +261,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
     this.isSlewing = false,
     this.slewProgressText,
     this.onMoreDetails,
+    this.expandedDetailsBuilder,
     this.hudBuilder,
     this.overlayBuilder,
     this.hasCustomToolbar = false,
@@ -266,6 +273,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
   final bool isSlewing;
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
+  final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
   final bool hasCustomToolbar;
@@ -363,6 +371,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                   onMoreDetails: onMoreDetails == null
                       ? null
                       : () => onMoreDetails!(context, selected),
+                  expandedBuilder: expandedDetailsBuilder,
                   onCopyCoordinates: (onGoto == null && onSync == null)
                       ? () => copySkyObjectCoordinates(context, selected)
                       : null,
