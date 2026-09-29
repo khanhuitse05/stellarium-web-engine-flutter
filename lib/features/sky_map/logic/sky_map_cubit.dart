@@ -335,7 +335,10 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     if (raw == null) return const [];
     try {
       final text = raw is String ? raw : raw.toString();
-      final decoded = jsonDecode(text);
+      var decoded = jsonDecode(text);
+      if (decoded is String) {
+        decoded = jsonDecode(decoded);
+      }
       if (decoded is! List) return const [];
       return decoded
           .whereType<Map>()

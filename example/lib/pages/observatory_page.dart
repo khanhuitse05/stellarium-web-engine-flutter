@@ -4,7 +4,6 @@ import 'package:mlastro_skymap/mlastro_skymap.dart';
 
 import '../widgets/expanded_object_detail_sheet.dart';
 import '../widgets/location_selector_dialog.dart';
-import '../widgets/search_and_filter_sheet.dart';
 import '../widgets/sky_map_style_sheet.dart';
 import '../widgets/time_machine_dock.dart';
 
@@ -197,10 +196,14 @@ class _TopBar extends StatelessWidget {
                 Icons.search,
                 color: isNight ? Colors.redAccent : Colors.cyanAccent,
               ),
-              onPressed: () => SearchAndFilterSheet.show(
+              onPressed: () => SkyMapSearchSheet.show(
                 context,
-                cubit: cubit,
-                onSelectObject: (obj) => cubit.centerOnObject(obj),
+                packageCubit: cubit,
+                onSelectObject: (obj) {
+                  cubit.centerOnObject(obj);
+                  cubit.selectById(obj.id);
+                  cubit.resumeMapInteraction();
+                },
               ),
             ),
             // Night vision toggle

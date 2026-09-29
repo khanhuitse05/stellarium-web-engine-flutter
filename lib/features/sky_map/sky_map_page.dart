@@ -10,6 +10,7 @@ import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 import 'package:mlastro_skymap/features/sky_map/view/open_source_licenses_page.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_map_loading_overlay.dart';
+import 'package:mlastro_skymap/features/sky_map/view/sky_map_search_sheet.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_map_web_view.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_object_panel.dart';
 
@@ -241,15 +242,17 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
   }
 
   Future<void> _openSearch(BuildContext context) async {
-    final picked = await showSearch<SkyObject?>(
-      context: context,
-      delegate: _SkyObjectSearchDelegate(search: _cubit.searchByName),
+    await SkyMapSearchSheet.show(
+      context,
+      packageCubit: _cubit,
+      onSelectObject: (picked) async {
+        await _cubit.centerOnObject(picked);
+        await _cubit.selectById(picked.id);
+        await _cubit.resumeMapInteraction();
+      },
     );
     if (!mounted) return;
     await _resumeAfterOverlay();
-    if (picked != null) {
-      await _cubit.centerOnObject(picked);
-    }
   }
 }
 
@@ -502,58 +505,3 @@ class _StatusHud extends StatelessWidget {
   }
 }
 
-class _SkyObjectSearchDelegate extends SearchDelegate<SkyObject?> {
-  _SkyObjectSearchDelegate({required this.search});
-
-  final Future<List<SkyObject>> Function(String q) search;
-
-  @override
-  List<Widget> buildActions(BuildContext context) => [
-        IconButton(onPressed: () => query = '', icon: const Icon(Icons.clear)),
-      ];
-
-  @override
-  Widget buildLeading(BuildContext context) => IconButton(
-        onPressed: () => close(context, null),
-        icon: const Icon(Icons.arrow_back),
-      );
-
-  @override
-  Widget buildResults(BuildContext context) => _list(context);
-
-  @override
-  Widget buildSuggestions(BuildContext context) => _list(context);
-
-  Widget _list(BuildContext context) {
-    return FutureBuilder<List<SkyObject>>(
-      future: search(query),
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final items = snap.data ?? const [];
-        if (items.isEmpty) {
-          return Center(
-            child: Text(
-              query.trim().isEmpty ? 'Type a star or DSO name' : 'No matches',
-            ),
-          );
-        }
-        return ListView.builder(
-          itemCount: items.length,
-          itemBuilder: (_, i) {
-            final o = items[i];
-            return ListTile(
-              title: Text(o.name),
-              subtitle: Text(
-                'RA ${hourToString(o.raHours)}  '
-                '${formatDeclinationForSd(o.decDeg)}',
-              ),
-              onTap: () => close(context, o),
-            );
-          },
-        );
-      },
-    );
-  }
-}
