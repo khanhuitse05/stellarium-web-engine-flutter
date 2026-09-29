@@ -39,6 +39,9 @@ class SkyMapPage extends StatelessWidget {
     this.routeObserver,
     this.onGoto,
     this.onSync,
+    this.onStop,
+    this.isSlewing = false,
+    this.slewProgressText,
     this.onMoreDetails,
     this.toolbarBuilder,
     this.hudBuilder,
@@ -53,6 +56,9 @@ class SkyMapPage extends StatelessWidget {
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
   final SkyMapObjectAction? onSync;
+  final VoidCallback? onStop;
+  final bool isSlewing;
+  final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
@@ -71,6 +77,9 @@ class SkyMapPage extends StatelessWidget {
         routeObserver: routeObserver,
         onGoto: onGoto,
         onSync: onSync,
+        onStop: onStop,
+        isSlewing: isSlewing,
+        slewProgressText: slewProgressText,
         onMoreDetails: onMoreDetails,
         toolbarBuilder: toolbarBuilder,
         hudBuilder: hudBuilder,
@@ -88,6 +97,9 @@ class _SkyMapView extends StatefulWidget {
     required this.routeObserver,
     required this.onGoto,
     required this.onSync,
+    required this.onStop,
+    required this.isSlewing,
+    required this.slewProgressText,
     required this.onMoreDetails,
     required this.toolbarBuilder,
     required this.hudBuilder,
@@ -100,6 +112,9 @@ class _SkyMapView extends StatefulWidget {
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
   final SkyMapObjectAction? onSync;
+  final VoidCallback? onStop;
+  final bool isSlewing;
+  final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
@@ -179,6 +194,9 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
           _SkyMapOverlayLayer(
             onGoto: widget.onGoto,
             onSync: widget.onSync,
+            onStop: widget.onStop,
+            isSlewing: widget.isSlewing,
+            slewProgressText: widget.slewProgressText,
             onMoreDetails: widget.onMoreDetails,
             hudBuilder: widget.hudBuilder,
             overlayBuilder: widget.overlayBuilder,
@@ -233,6 +251,9 @@ class _SkyMapOverlayLayer extends StatelessWidget {
   const _SkyMapOverlayLayer({
     required this.onGoto,
     this.onSync,
+    this.onStop,
+    this.isSlewing = false,
+    this.slewProgressText,
     this.onMoreDetails,
     this.hudBuilder,
     this.overlayBuilder,
@@ -241,6 +262,9 @@ class _SkyMapOverlayLayer extends StatelessWidget {
 
   final SkyMapObjectAction? onGoto;
   final SkyMapObjectAction? onSync;
+  final VoidCallback? onStop;
+  final bool isSlewing;
+  final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -326,11 +350,14 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                 bottom: 16 + bottomInset,
                 child: SkyObjectPanel(
                   object: selected,
+                  isSlewing: isSlewing,
+                  onStop: onStop,
+                  slewProgressText: slewProgressText,
                   onClose: () => context.read<SkyMapCubit>().deselectObject(),
                   onGoto: onGoto == null
                       ? null
                       : () => onGoto!(context, selected),
-                  onSync: onSync == null
+                  onSync: isSlewing || onSync == null
                       ? null
                       : () => onSync!(context, selected),
                   onMoreDetails: onMoreDetails == null
@@ -340,10 +367,96 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                       ? () => copySkyObjectCoordinates(context, selected)
                       : null,
                 ),
+              )
+            else if (isSlewing && onStop != null)
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 16 + bottomInset,
+                child: _FloatingSlewDock(
+                  isNight: state.config.nightMode,
+                  progressText: slewProgressText,
+                  onStop: onStop!,
+                ),
               ),
           ],
         );
       },
+    );
+  }
+}
+
+class _FloatingSlewDock extends StatelessWidget {
+  const _FloatingSlewDock({
+    required this.isNight,
+    required this.onStop,
+    this.progressText,
+  });
+
+  final bool isNight;
+  final VoidCallback onStop;
+  final String? progressText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isNight
+          ? const Color(0xEE1E0505)
+          : Colors.black.withValues(alpha: 0.88),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isNight ? const Color(0x88FF2222) : const Color(0x66FFA000),
+          width: 1.2,
+        ),
+      ),
+      elevation: 6,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.amberAccent,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                progressText != null
+                    ? 'Telescope slewing ($progressText)'
+                    : 'Telescope slewing…',
+                style: TextStyle(
+                  color: isNight ? const Color(0xFFFFCCCC) : Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: const Color(0xFFD32F2F),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: onStop,
+              icon: const Icon(Icons.stop_rounded, size: 18),
+              label: const Text(
+                'STOP',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

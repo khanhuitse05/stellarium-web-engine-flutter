@@ -12,6 +12,9 @@ class SkyObjectPanel extends StatelessWidget {
     this.onCopyCoordinates,
     this.onClose,
     this.onMoreDetails,
+    this.isSlewing = false,
+    this.onStop,
+    this.slewProgressText,
     super.key,
   });
 
@@ -21,6 +24,9 @@ class SkyObjectPanel extends StatelessWidget {
   final VoidCallback? onCopyCoordinates;
   final VoidCallback? onClose;
   final VoidCallback? onMoreDetails;
+  final bool isSlewing;
+  final VoidCallback? onStop;
+  final String? slewProgressText;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +69,44 @@ class SkyObjectPanel extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (isSlewing)
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.amberAccent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: Colors.amberAccent.withValues(alpha: 0.6),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 8,
+                          height: 8,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.amberAccent,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          slewProgressText != null
+                              ? 'SLEWING $slewProgressText'
+                              : 'SLEWING',
+                          style: const TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (object.constellation != null &&
                     object.constellation!.isNotEmpty)
                   Container(
@@ -196,7 +240,7 @@ class SkyObjectPanel extends StatelessWidget {
                           const Text('Copy', style: TextStyle(fontSize: 12)),
                     ),
                   ),
-                if (onSync != null) ...[
+                if (onSync != null && !isSlewing) ...[
                   if (onMoreDetails != null || onCopyCoordinates != null)
                     const SizedBox(width: 8),
                   Expanded(
@@ -219,12 +263,36 @@ class SkyObjectPanel extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (onGoto != null &&
-                    (onMoreDetails != null ||
-                        onCopyCoordinates != null ||
-                        onSync != null))
-                  const SizedBox(width: 8),
-                if (onGoto != null)
+                if (isSlewing && onStop != null) ...[
+                  if (onMoreDetails != null || onCopyCoordinates != null)
+                    const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFD32F2F),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: onStop,
+                      icon: const Icon(Icons.stop_rounded, size: 18),
+                      label: Text(
+                        slewProgressText != null
+                            ? 'STOP ($slewProgressText)'
+                            : 'STOP',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else if (onGoto != null) ...[
+                  if (onMoreDetails != null ||
+                      onCopyCoordinates != null ||
+                      (onSync != null && !isSlewing))
+                    const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
@@ -240,6 +308,7 @@ class SkyObjectPanel extends StatelessWidget {
                           const Text('Goto', style: TextStyle(fontSize: 12)),
                     ),
                   ),
+                ]
               ],
             ),
           ],
