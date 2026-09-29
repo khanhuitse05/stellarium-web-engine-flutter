@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mlastro_skymap/astro/coordinate_format.dart';
+import 'package:mlastro_skymap/astro/planetary_ephemeris.dart';
 import 'package:mlastro_skymap/features/sky_map/data/curated_targets.dart';
 import 'package:mlastro_skymap/features/sky_map/logic/sky_map_cubit.dart';
 import 'package:mlastro_skymap/features/sky_map/logic/sky_map_state.dart';
@@ -23,20 +24,27 @@ class _PreparedSearchTarget {
   final List<String> compactAliases;
 }
 
-/// Slide-up modal search sheet providing real-time celestial object lookup
-/// querying curated offline targets (Solar System, Messier, Caldwell, Bright Stars, NGC/IC)
-/// merged with the Stellarium Web Engine database.
+/// Slide-up modal sheet merging Celestial Catalogs and Search.
+///
+/// - When search input is **empty**: displays curated celestial catalogs organized
+///   in category tabs (Tonight's Best, Planets, Messier, Stars, Caldwell, DSOs).
+/// - When user **types**: transitions dynamically to live search results (instant
+///   in-memory lookup + Stellarium Web Engine bridge search).
 class SkyMapSearchSheet extends StatefulWidget {
   const SkyMapSearchSheet({
     required this.packageCubit,
     this.onSelectObject,
     this.customSearch,
+    this.autoFocusSearch = true,
+    this.initialCatalogIndex = 0,
     super.key,
   });
 
   final SkyMapCubit packageCubit;
   final ValueChanged<SkyObject>? onSelectObject;
   final Future<List<SkyObject>> Function(String query)? customSearch;
+  final bool autoFocusSearch;
+  final int initialCatalogIndex;
 
   /// Convenience modal launcher.
   static Future<void> show(
@@ -44,6 +52,8 @@ class SkyMapSearchSheet extends StatefulWidget {
     required SkyMapCubit packageCubit,
     ValueChanged<SkyObject>? onSelectObject,
     Future<List<SkyObject>> Function(String query)? customSearch,
+    bool autoFocusSearch = true,
+    int initialCatalogIndex = 0,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -53,6 +63,8 @@ class SkyMapSearchSheet extends StatefulWidget {
         packageCubit: packageCubit,
         onSelectObject: onSelectObject,
         customSearch: customSearch,
+        autoFocusSearch: autoFocusSearch,
+        initialCatalogIndex: initialCatalogIndex,
       ),
     );
   }
@@ -61,7 +73,9 @@ class SkyMapSearchSheet extends StatefulWidget {
   State<SkyMapSearchSheet> createState() => _SkyMapSearchSheetState();
 }
 
-class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
+class _SkyMapSearchSheetState extends State<SkyMapSearchSheet>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
@@ -71,20 +85,45 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
 
   static List<_PreparedSearchTarget>? _preparedTargets;
 
+  List<SkyObject> _tonightsBest = const [];
+  List<SkyObject> _planets = const [];
+  List<SkyObject> _messier = const [];
+  List<SkyObject> _stars = const [];
+  List<SkyObject> _caldwell = const [];
+  List<SkyObject> _dsos = const [];
+
+  static const List<String> _catalogTabs = [
+    "Tonight's Best",
+    'Planets',
+    'Messier',
+    'Stars',
+    'Caldwell',
+    'DSOs',
+  ];
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: _catalogTabs.length,
+      vsync: this,
+      initialIndex: widget.initialCatalogIndex.clamp(0, _catalogTabs.length - 1),
+    );
     _searchController.addListener(_onSearchChanged);
     _ensureTargetsPrepared();
+    _initCatalogs();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
+    if (widget.autoFocusSearch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _tabController.dispose();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -106,6 +145,60 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
     }).toList();
   }
 
+  void _initCatalogs() {
+    final nowUtc = widget.packageCubit.state.utc;
+    final obsLat = widget.packageCubit.state.observerLat;
+    final obsLon = widget.packageCubit.state.observerLonEast;
+
+    final all = <SkyObject>[];
+    final planets = <SkyObject>[];
+    final messier = <SkyObject>[];
+    final stars = <SkyObject>[];
+    final caldwell = <SkyObject>[];
+    final dsos = <SkyObject>[];
+
+    for (final t in kCuratedSkyTargets) {
+      final obj = _toSkyObject(t, nowUtc: nowUtc, obsLat: obsLat, obsLon: obsLon);
+      all.add(obj);
+
+      if (t.isSolarSystem ||
+          t.kind == SkyObjectKind.planet ||
+          t.kind == SkyObjectKind.moon ||
+          t.kind == SkyObjectKind.sun) {
+        planets.add(obj);
+      } else if (t.kind == SkyObjectKind.messier) {
+        messier.add(obj);
+      } else if (t.kind == SkyObjectKind.star) {
+        stars.add(obj);
+      } else if (t.kind == SkyObjectKind.caldwell) {
+        caldwell.add(obj);
+      } else if (t.kind == SkyObjectKind.dso) {
+        dsos.add(obj);
+      }
+    }
+
+    // Stars sorted by brightness (magnitude ascending)
+    stars.sort((a, b) => (a.magnitude ?? 99.0).compareTo(b.magnitude ?? 99.0));
+
+    // Tonight's Best: targets with altitude >= 15° (or >= 0° if few above 15°)
+    var best = all.where((o) => (o.altDeg ?? -90.0) >= 15.0).toList();
+    if (best.length < 12) {
+      best = all.where((o) => (o.altDeg ?? -90.0) >= 0.0).toList();
+    }
+    best.sort((a, b) {
+      final magComp = (a.magnitude ?? 99.0).compareTo(b.magnitude ?? 99.0);
+      if (magComp != 0) return magComp;
+      return (b.altDeg ?? 0.0).compareTo(a.altDeg ?? 0.0);
+    });
+
+    _tonightsBest = best;
+    _planets = planets;
+    _messier = messier;
+    _stars = stars;
+    _caldwell = caldwell;
+    _dsos = dsos;
+  }
+
   void _onSearchChanged() {
     final query = _searchController.text.trim();
     _debounceTimer?.cancel();
@@ -118,7 +211,6 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
       return;
     }
 
-    // Debounce for 180ms to provide fluid typing feel
     _debounceTimer = Timer(const Duration(milliseconds: 180), () {
       _executeSearch(query);
     });
@@ -237,9 +329,18 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
     required double obsLat,
     required double obsLon,
   }) {
+    var ra = target.raHours;
+    var dec = target.decDeg;
+
+    if (target.isSolarSystem) {
+      final ephem = celestialRaDec(target.name, nowUtc);
+      ra = ephem.raHours;
+      dec = ephem.decDeg;
+    }
+
     final altAz = equatorialRaDecToAltAz(
-      raHours: target.raHours,
-      decDeg: target.decDeg,
+      raHours: ra,
+      decDeg: dec,
       latDeg: obsLat,
       lonEastDeg: obsLon,
       timeUtc: nowUtc,
@@ -249,8 +350,8 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
       id: target.id,
       name: target.name,
       kind: target.kind,
-      raHours: target.raHours,
-      decDeg: target.decDeg,
+      raHours: ra,
+      decDeg: dec,
       magnitude: target.magnitude,
       altDeg: altAz.altDeg,
       azDeg: altAz.azDeg,
@@ -329,9 +430,10 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
         final borderColor = isNight ? const Color(0x66FF2222) : const Color(0x33FFFFFF);
         final activeColor = isNight ? const Color(0xFFFF5252) : const Color(0xFF00E5FF);
         final query = _searchController.text.trim();
+        final isCatalogMode = query.isEmpty;
 
         final viewInsets = MediaQuery.of(context).viewInsets;
-        final sheetHeight = MediaQuery.sizeOf(context).height * 0.75;
+        final sheetHeight = MediaQuery.sizeOf(context).height * 0.78;
         final displayResults = _results;
 
         return Container(
@@ -355,15 +457,19 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
                 ),
               ),
 
-              // Header
+              // Title Header
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Row(
                   children: [
-                    Icon(Icons.search_rounded, color: activeColor, size: 20),
+                    Icon(
+                      isCatalogMode ? Icons.auto_stories_rounded : Icons.search_rounded,
+                      color: activeColor,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
-                      'CELESTIAL SEARCH',
+                      isCatalogMode ? 'CELESTIAL CATALOGS' : 'CELESTIAL SEARCH',
                       style: TextStyle(
                         color: isNight ? const Color(0xFFFF8888) : Colors.white,
                         fontSize: 14,
@@ -371,7 +477,7 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
                         letterSpacing: 1.0,
                       ),
                     ),
-                    if (_results.isNotEmpty) ...[
+                    if (!isCatalogMode && _results.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -416,7 +522,7 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
                     fontSize: 13,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Search stars, planets, DSOs, Messier…',
+                    hintText: 'Search stars, planets, Messier, DSOs…',
                     hintStyle: TextStyle(
                       color: isNight ? const Color(0x66FF6666) : Colors.white38,
                       fontSize: 13,
@@ -473,12 +579,62 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
                 ),
               ),
 
+              // Catalog Category Tabs (only shown when search input is empty)
+              if (isCatalogMode) ...[
+                TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  indicatorColor: activeColor,
+                  labelColor: activeColor,
+                  unselectedLabelColor: isNight ? const Color(0x99FF8888) : Colors.white60,
+                  labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  unselectedLabelStyle: const TextStyle(fontSize: 12),
+                  tabs: _catalogTabs.map((t) => Tab(text: t)).toList(),
+                ),
+              ],
+
               const Divider(height: 1, color: Colors.white12),
 
-              // Body Content
+              // Body Content: TabBarView in Catalog mode, Results list in Search mode
               Expanded(
-                child: query.isEmpty
-                    ? _buildSuggestionsView(context, isNight, activeColor)
+                child: isCatalogMode
+                    ? TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildCatalogList(
+                            _tonightsBest,
+                            isNight,
+                            activeColor,
+                            emptyMessage: 'No visible objects found tonight',
+                          ),
+                          _buildCatalogList(
+                            _planets,
+                            isNight,
+                            activeColor,
+                          ),
+                          _buildCatalogList(
+                            _messier,
+                            isNight,
+                            activeColor,
+                          ),
+                          _buildCatalogList(
+                            _stars,
+                            isNight,
+                            activeColor,
+                          ),
+                          _buildCatalogList(
+                            _caldwell,
+                            isNight,
+                            activeColor,
+                          ),
+                          _buildCatalogList(
+                            _dsos,
+                            isNight,
+                            activeColor,
+                          ),
+                        ],
+                      )
                     : _searching && _results.isEmpty
                         ? Center(
                             child: CircularProgressIndicator(color: activeColor),
@@ -494,61 +650,24 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
     );
   }
 
-  Widget _buildSuggestionsView(BuildContext context, bool isNight, Color activeColor) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isNight
-                ? const Color(0x18FF2222)
-                : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isNight ? const Color(0x33FF2222) : Colors.white10,
-              width: 0.8,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: isNight ? const Color(0xAAFF5252) : const Color(0xAA00E5FF),
-                    size: 15,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'SEARCH TIPS',
-                    style: TextStyle(
-                      color: isNight ? const Color(0x88FF8888) : Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '• Direct names: Jupiter, Mars, Vega, Sirius, Polaris\n'
-                '• Catalog codes: M31, M42, NGC 7000, IC 434, C14\n'
-                '• Constellations: Orion, Ursa Major, Cassiopeia\n'
-                '• Deep-sky objects: Andromeda Galaxy, Orion Nebula, Pleiades',
-                style: TextStyle(
-                  color: isNight ? const Color(0x66FF9999) : Colors.white38,
-                  fontSize: 11,
-                  height: 1.5,
-                ),
-              ),
-            ],
+  Widget _buildCatalogList(
+    List<SkyObject> items,
+    bool isNight,
+    Color activeColor, {
+    String emptyMessage = 'No items found in this catalog',
+  }) {
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          emptyMessage,
+          style: TextStyle(
+            color: isNight ? const Color(0x66FF6666) : Colors.white38,
+            fontSize: 13,
           ),
         ),
-      ],
-    );
+      );
+    }
+    return _buildResultsList(context, isNight, activeColor, items);
   }
 
   Widget _buildNoResultsView(BuildContext context, bool isNight, String query) {
@@ -560,22 +679,22 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
           children: [
             Icon(
               Icons.search_off_rounded,
-              color: isNight ? const Color(0x66FF5252) : Colors.white24,
-              size: 40,
+              color: isNight ? const Color(0x66FF4444) : Colors.white24,
+              size: 48,
             ),
             const SizedBox(height: 12),
             Text(
-              'No celestial targets matching "$query"',
+              'No celestial targets found for "$query"',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: isNight ? const Color(0xAAFF8888) : Colors.white70,
+                color: isNight ? const Color(0xFFFF8888) : Colors.white70,
                 fontSize: 13,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              'Check spelling or try catalog codes (e.g. "M42", "NGC 224").',
+              'Check spelling or try catalog codes (e.g. "M42", "NGC 224", "Jupiter").',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: isNight ? const Color(0x66FF6666) : Colors.white38,
@@ -601,10 +720,11 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
         final o = items[index];
         final hasMag = o.magnitude != null;
         final magStr = hasMag ? 'Mag ${o.magnitude!.toStringAsFixed(1)}' : '';
+        final isAbove = o.isAboveHorizon;
         final altStr = o.altDeg != null
-            ? (o.isAboveHorizon
-                ? 'Alt ${o.altDeg!.toStringAsFixed(0)}°'
-                : 'Below horizon')
+            ? (isAbove
+                ? 'Alt +${o.altDeg!.toStringAsFixed(0)}°'
+                : 'Alt ${o.altDeg!.toStringAsFixed(0)}°')
             : '';
 
         String? commonAlias;
@@ -627,7 +747,6 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
           if (o.constellation != null && o.constellation!.isNotEmpty)
             o.constellation!,
           if (magStr.isNotEmpty) magStr,
-          if (altStr.isNotEmpty) altStr,
         ].join('  ·  ');
 
         final icon = _iconForKind(o.kind);
@@ -668,13 +787,17 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                hourToString(o.raHours),
-                style: TextStyle(
-                  color: isNight ? const Color(0xCCFF8888) : Colors.white70,
-                  fontSize: 11,
+              if (altStr.isNotEmpty)
+                Text(
+                  altStr,
+                  style: TextStyle(
+                    color: isAbove
+                        ? (isNight ? const Color(0xFFFF5252) : const Color(0xFF00E5FF))
+                        : (isNight ? const Color(0x55FF5252) : Colors.white38),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
               Text(
                 formatDeclinationForSd(o.decDeg),
                 style: TextStyle(
