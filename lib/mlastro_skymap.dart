@@ -8,6 +8,7 @@ export 'features/sky_map/model/sky_object.dart';
 export 'features/sky_map/model/sky_object_kind.dart';
 export 'features/sky_map/sky_map_page.dart';
 export 'features/sky_map/view/open_source_licenses_page.dart';
+export 'features/sky_map/view/sky_map_loading_overlay.dart';
 export 'features/sky_map/view/sky_map_web_view.dart';
 export 'features/sky_map/view/sky_object_panel.dart';
 export 'services/location_service.dart';

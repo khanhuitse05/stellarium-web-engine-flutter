@@ -82,7 +82,7 @@ class _SkyMapWebViewState extends State<SkyMapWebView> {
 
       final controller = _createController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(const Color(0xFF000011))
+        ..setBackgroundColor(const Color(0xFF060913))
         ..addJavaScriptChannel(
           'MlastroBridge',
           onMessageReceived: _onBridgeMessage,
@@ -181,7 +181,7 @@ class _SkyMapWebViewState extends State<SkyMapWebView> {
 
     final controller = _controller;
     if (controller == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const ColoredBox(color: Color(0xFF060913));
     }
 
     return Stack(
@@ -197,8 +197,8 @@ class _SkyMapWebViewState extends State<SkyMapWebView> {
           LinearProgressIndicator(
             minHeight: 2,
             value: _progress / 100,
-            color: Theme.of(context).colorScheme.primary,
-            backgroundColor: Colors.black26,
+            color: const Color(0xFF00E5FF),
+            backgroundColor: Colors.transparent,
           ),
       ],
     );

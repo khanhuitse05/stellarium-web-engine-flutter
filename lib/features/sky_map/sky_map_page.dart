@@ -9,6 +9,7 @@ import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 import 'package:mlastro_skymap/features/sky_map/view/open_source_licenses_page.dart';
+import 'package:mlastro_skymap/features/sky_map/view/sky_map_loading_overlay.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_map_web_view.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_object_panel.dart';
 
@@ -190,6 +191,20 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
               right: 0,
               child: widget.toolbarBuilder!(context, _cubit),
             ),
+          BlocBuilder<SkyMapCubit, SkyMapState>(
+            buildWhen: (prev, next) =>
+                prev.mapReady != next.mapReady ||
+                prev.statusLine != next.statusLine ||
+                prev.config.nightMode != next.config.nightMode,
+            builder: (context, state) {
+              return SkyMapLoadingOverlay(
+                isReady: state.mapReady,
+                errorMessage: state.statusLine,
+                isNightMode: state.config.nightMode,
+                onRetry: () => _cubit.start(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -322,6 +337,8 @@ class _StatusHud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (telescope == null) return const SizedBox.shrink();
+
     return IgnorePointer(
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -330,18 +347,10 @@ class _StatusHud extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!mapReady) const Text('Loading sky map…'),
-              if (telescope != null)
-                Text(
-                  'RA ${hourToString(telescope!.raHours)}  '
-                  'Dec ${formatDecDegreesForDisplay(telescope!.decDeg)}',
-                  style: const TextStyle(color: Colors.lightGreenAccent),
-                ),
-            ],
+          child: Text(
+            'RA ${hourToString(telescope!.raHours)}  '
+            'Dec ${formatDecDegreesForDisplay(telescope!.decDeg)}',
+            style: const TextStyle(color: Colors.lightGreenAccent),
           ),
         ),
       ),
