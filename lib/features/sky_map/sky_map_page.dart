@@ -38,6 +38,7 @@ class SkyMapPage extends StatelessWidget {
     this.routeObserver,
     this.onGoto,
     this.onSync,
+    this.onMoreDetails,
     this.toolbarBuilder,
     this.hudBuilder,
     this.overlayBuilder,
@@ -51,6 +52,7 @@ class SkyMapPage extends StatelessWidget {
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
   final SkyMapObjectAction? onSync;
+  final SkyMapObjectAction? onMoreDetails;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -68,6 +70,7 @@ class SkyMapPage extends StatelessWidget {
         routeObserver: routeObserver,
         onGoto: onGoto,
         onSync: onSync,
+        onMoreDetails: onMoreDetails,
         toolbarBuilder: toolbarBuilder,
         hudBuilder: hudBuilder,
         overlayBuilder: overlayBuilder,
@@ -84,6 +87,7 @@ class _SkyMapView extends StatefulWidget {
     required this.routeObserver,
     required this.onGoto,
     required this.onSync,
+    required this.onMoreDetails,
     required this.toolbarBuilder,
     required this.hudBuilder,
     required this.overlayBuilder,
@@ -95,6 +99,7 @@ class _SkyMapView extends StatefulWidget {
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
   final SkyMapObjectAction? onSync;
+  final SkyMapObjectAction? onMoreDetails;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -173,6 +178,7 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
           _SkyMapOverlayLayer(
             onGoto: widget.onGoto,
             onSync: widget.onSync,
+            onMoreDetails: widget.onMoreDetails,
             hudBuilder: widget.hudBuilder,
             overlayBuilder: widget.overlayBuilder,
             hasCustomToolbar: hasCustomToolbar,
@@ -214,6 +220,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
   const _SkyMapOverlayLayer({
     required this.onGoto,
     this.onSync,
+    this.onMoreDetails,
     this.hudBuilder,
     this.overlayBuilder,
     this.hasCustomToolbar = false,
@@ -221,6 +228,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
 
   final SkyMapObjectAction? onGoto;
   final SkyMapObjectAction? onSync;
+  final SkyMapObjectAction? onMoreDetails;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
   final bool hasCustomToolbar;
@@ -288,6 +296,9 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                   onSync: onSync == null
                       ? null
                       : () => onSync!(context, selected),
+                  onMoreDetails: onMoreDetails == null
+                      ? null
+                      : () => onMoreDetails!(context, selected),
                   onCopyCoordinates: (onGoto == null && onSync == null)
                       ? () => copySkyObjectCoordinates(context, selected)
                       : null,
