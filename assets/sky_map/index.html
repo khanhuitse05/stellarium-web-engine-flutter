@@ -33,6 +33,15 @@
       display: block;
       transition: filter 0.3s ease;
     }
+    #reticle-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+      z-index: 2;
+    }
     #stel-root.night-mode #stel-canvas {
       filter: sepia(100%) saturate(900%) hue-rotate(315deg) contrast(140%) brightness(0.85);
     }
@@ -56,7 +65,7 @@
       font: 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       text-align: center;
       pointer-events: none;
-      z-index: 2;
+      z-index: 3;
     }
     #loading.error {
       color: #ff8888;
@@ -67,6 +76,7 @@
 <body>
   <div id="stel-root">
     <canvas id="stel-canvas"></canvas>
+    <canvas id="reticle-canvas"></canvas>
     <div id="loading">Loading sky map…</div>
   </div>
   <script src="stellarium/stellarium-web-engine.js"></script>

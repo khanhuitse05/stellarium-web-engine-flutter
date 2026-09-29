@@ -8,6 +8,7 @@ class SkyObjectPanel extends StatelessWidget {
   const SkyObjectPanel({
     required this.object,
     this.onGoto,
+    this.onSync,
     this.onCopyCoordinates,
     this.onClose,
     this.onMoreDetails,
@@ -16,6 +17,7 @@ class SkyObjectPanel extends StatelessWidget {
 
   final SkyObject object;
   final VoidCallback? onGoto;
+  final VoidCallback? onSync;
   final VoidCallback? onCopyCoordinates;
   final VoidCallback? onClose;
   final VoidCallback? onMoreDetails;
@@ -194,8 +196,33 @@ class SkyObjectPanel extends StatelessWidget {
                           const Text('Copy', style: TextStyle(fontSize: 12)),
                     ),
                   ),
+                if (onSync != null) ...[
+                  if (onMoreDetails != null || onCopyCoordinates != null)
+                    const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                        side: BorderSide(
+                          color: isNight
+                              ? Colors.amber.withValues(alpha: 0.6)
+                              : Colors.amberAccent.withValues(alpha: 0.6),
+                        ),
+                        foregroundColor: isNight
+                            ? const Color(0xFFFFCC66)
+                            : Colors.amberAccent,
+                      ),
+                      onPressed: onSync,
+                      icon: const Icon(Icons.sync, size: 16),
+                      label: const Text('Sync', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
+                ],
                 if (onGoto != null &&
-                    (onMoreDetails != null || onCopyCoordinates != null))
+                    (onMoreDetails != null ||
+                        onCopyCoordinates != null ||
+                        onSync != null))
                   const SizedBox(width: 8),
                 if (onGoto != null)
                   Expanded(

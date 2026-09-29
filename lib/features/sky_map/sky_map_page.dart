@@ -17,6 +17,17 @@ typedef SkyMapObjectAction = Future<void> Function(
   BuildContext context,
   SkyObject object,
 );
+typedef SkyMapToolbarBuilder = Widget Function(
+  BuildContext context,
+  SkyMapCubit cubit,
+);
+typedef SkyMapHudBuilder = Widget Function(
+  BuildContext context,
+  SkyMapState state,
+);
+typedef SkyMapOverlayBuilder = List<Widget> Function(
+  BuildContext context,
+);
 
 /// Full-screen interactive sky map powered by Stellarium Web Engine.
 class SkyMapPage extends StatelessWidget {
@@ -26,6 +37,10 @@ class SkyMapPage extends StatelessWidget {
     this.initialConfig,
     this.routeObserver,
     this.onGoto,
+    this.onSync,
+    this.toolbarBuilder,
+    this.hudBuilder,
+    this.overlayBuilder,
     this.showLicensesButton = true,
     this.showSearchButton = true,
     this.appBarActions = const [],
@@ -35,6 +50,10 @@ class SkyMapPage extends StatelessWidget {
   final SkyMapConfig? initialConfig;
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
+  final SkyMapObjectAction? onSync;
+  final SkyMapToolbarBuilder? toolbarBuilder;
+  final SkyMapHudBuilder? hudBuilder;
+  final SkyMapOverlayBuilder? overlayBuilder;
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
@@ -48,6 +67,10 @@ class SkyMapPage extends StatelessWidget {
       child: _SkyMapView(
         routeObserver: routeObserver,
         onGoto: onGoto,
+        onSync: onSync,
+        toolbarBuilder: toolbarBuilder,
+        hudBuilder: hudBuilder,
+        overlayBuilder: overlayBuilder,
         showLicensesButton: showLicensesButton,
         showSearchButton: showSearchButton,
         appBarActions: appBarActions,
@@ -60,6 +83,10 @@ class _SkyMapView extends StatefulWidget {
   const _SkyMapView({
     required this.routeObserver,
     required this.onGoto,
+    required this.onSync,
+    required this.toolbarBuilder,
+    required this.hudBuilder,
+    required this.overlayBuilder,
     required this.showLicensesButton,
     required this.showSearchButton,
     required this.appBarActions,
@@ -67,6 +94,10 @@ class _SkyMapView extends StatefulWidget {
 
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
+  final SkyMapObjectAction? onSync;
+  final SkyMapToolbarBuilder? toolbarBuilder;
+  final SkyMapHudBuilder? hudBuilder;
+  final SkyMapOverlayBuilder? overlayBuilder;
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
@@ -106,36 +137,53 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
+    final hasCustomToolbar = widget.toolbarBuilder != null;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        actions: [
-          ...widget.appBarActions,
-          if (widget.showLicensesButton)
-            IconButton(
-              tooltip: 'Open source licenses',
-              onPressed: () => _openLicenses(context),
-              icon: const Icon(Icons.info_outline, color: Colors.white),
+      appBar: hasCustomToolbar
+          ? null
+          : AppBar(
+              backgroundColor: Colors.transparent,
+              actions: [
+                ...widget.appBarActions,
+                if (widget.showLicensesButton)
+                  IconButton(
+                    tooltip: 'Open source licenses',
+                    onPressed: () => _openLicenses(context),
+                    icon: const Icon(Icons.info_outline, color: Colors.white),
+                  ),
+                if (widget.showSearchButton)
+                  BlocSelector<SkyMapCubit, SkyMapState, bool>(
+                    selector: (state) => state.mapReady,
+                    builder: (context, mapReady) {
+                      return IconButton(
+                        tooltip: 'Search object',
+                        onPressed: mapReady ? () => _openSearch(context) : null,
+                        icon: const Icon(Icons.search, color: Colors.white),
+                      );
+                    },
+                  ),
+              ],
             ),
-          if (widget.showSearchButton)
-            BlocSelector<SkyMapCubit, SkyMapState, bool>(
-              selector: (state) => state.mapReady,
-              builder: (context, mapReady) {
-                return IconButton(
-                  tooltip: 'Search object',
-                  onPressed: mapReady ? () => _openSearch(context) : null,
-                  icon: const Icon(Icons.search, color: Colors.white),
-                );
-              },
-            ),
-        ],
-      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
           SkyMapWebView(cubit: _cubit),
-          _SkyMapOverlayLayer(onGoto: widget.onGoto),
+          _SkyMapOverlayLayer(
+            onGoto: widget.onGoto,
+            onSync: widget.onSync,
+            hudBuilder: widget.hudBuilder,
+            overlayBuilder: widget.overlayBuilder,
+            hasCustomToolbar: hasCustomToolbar,
+          ),
+          if (hasCustomToolbar)
+            Positioned(
+              top: MediaQuery.paddingOf(context).top,
+              left: 0,
+              right: 0,
+              child: widget.toolbarBuilder!(context, _cubit),
+            ),
         ],
       ),
     );
@@ -163,9 +211,19 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
 }
 
 class _SkyMapOverlayLayer extends StatelessWidget {
-  const _SkyMapOverlayLayer({required this.onGoto});
+  const _SkyMapOverlayLayer({
+    required this.onGoto,
+    this.onSync,
+    this.hudBuilder,
+    this.overlayBuilder,
+    this.hasCustomToolbar = false,
+  });
 
   final SkyMapObjectAction? onGoto;
+  final SkyMapObjectAction? onSync;
+  final SkyMapHudBuilder? hudBuilder;
+  final SkyMapOverlayBuilder? overlayBuilder;
+  final bool hasCustomToolbar;
 
   @override
   Widget build(BuildContext context) {
@@ -185,12 +243,16 @@ class _SkyMapOverlayLayer extends StatelessWidget {
           children: [
             Positioned(
               left: 12,
-              top: MediaQuery.paddingOf(context).top + 8,
-              child: _StatusHud(
-                mapReady: state.mapReady,
-                telescope: telescope,
-              ),
+              top: MediaQuery.paddingOf(context).top +
+                  (hasCustomToolbar ? 64 : 8),
+              child: hudBuilder != null
+                  ? hudBuilder!(context, state)
+                  : _StatusHud(
+                      mapReady: state.mapReady,
+                      telescope: telescope,
+                    ),
             ),
+            if (overlayBuilder != null) ...overlayBuilder!(context),
             if (state.statusLine != null)
               Positioned(
                 left: 12,
@@ -223,7 +285,10 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                   onGoto: onGoto == null
                       ? null
                       : () => onGoto!(context, selected),
-                  onCopyCoordinates: onGoto == null
+                  onSync: onSync == null
+                      ? null
+                      : () => onSync!(context, selected),
+                  onCopyCoordinates: (onGoto == null && onSync == null)
                       ? () => copySkyObjectCoordinates(context, selected)
                       : null,
                 ),

@@ -59,15 +59,20 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     if (isClosed) return;
     if (position == null) {
       emit(state.copyWith(clearTelescope: true));
+      unawaited(_pushTelescopeToMap(null));
       return;
     }
     emit(state.copyWith(telescope: position));
+    unawaited(_pushTelescopeToMap(position));
   }
 
   void onMapReady() {
     emit(state.copyWith(mapReady: true, clearStatus: true));
     unawaited(_pushObserverToMap(state.utc));
     unawaited(_pushConfigToMap(state.config));
+    if (state.telescope != null) {
+      unawaited(_pushTelescopeToMap(state.telescope));
+    }
   }
 
   void onMapError(String message) {
@@ -221,6 +226,32 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     try {
       await web.runJavaScript(
         'window.MlastroSky.setConfig(${jsonEncode(config.toJson())});',
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _pushTelescopeToMap(SkyMapTelescopePosition? pos) async {
+    final web = _web;
+    if (web == null || !state.mapReady) return;
+    try {
+      if (pos == null) {
+        await web.runJavaScript('window.MlastroSky.setTelescope(null);');
+      } else {
+        await web.runJavaScript(
+          'window.MlastroSky.setTelescope(${pos.raHours}, ${pos.decDeg}, ${pos.isTracking}, ${pos.isSlewing});',
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> centerOnTelescope() async {
+    final t = state.telescope;
+    if (t == null) return;
+    final web = _web;
+    if (web == null || !state.mapReady) return;
+    try {
+      await web.runJavaScript(
+        'window.MlastroSky.centerOn(${t.raHours}, ${t.decDeg});',
       );
     } catch (_) {}
   }

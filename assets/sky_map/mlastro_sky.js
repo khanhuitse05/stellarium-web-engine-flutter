@@ -523,6 +523,382 @@
     tick();
   }
 
+  // -------------------------------------------------------------
+  // Live Telescope Reticle & Stereographic Projection Subsystem
+  // -------------------------------------------------------------
+  var _telescope = null; // { raHours, decDeg, isTracking, isSlewing }
+  var reticleCanvas = null;
+  var reticleCtx = null;
+  var reticleLoopActive = false;
+
+  function setTelescope(raHours, decDeg, isTracking, isSlewing) {
+    if (raHours === null || raHours === undefined || isNaN(Number(raHours))) {
+      _telescope = null;
+    } else {
+      _telescope = {
+        raHours: Number(raHours),
+        decDeg: Number(decDeg),
+        isTracking: Boolean(isTracking),
+        isSlewing: Boolean(isSlewing)
+      };
+    }
+  }
+
+  function centerOnTelescope() {
+    if (!_telescope || !ready || !stel) return;
+    window.MlastroSky.centerOn(_telescope.raHours, _telescope.decDeg);
+  }
+
+  function projectCoordinates(raHours, decDeg) {
+    if (!ready || !stel) return null;
+    try {
+      var obs = stel.core.observer;
+      var raRad = raHours * Math.PI / 12;
+      var decRad = decDeg * Math.PI / 180;
+      var icrs = stel.s2c(raRad, decRad);
+      var v = stel.convertFrame(obs, 'ICRF', 'VIEW', icrs);
+      if (!v) return null;
+
+      var vx = v[0];
+      var vy = v[1];
+      var vz = v[2];
+
+      var d = Math.sqrt(vx * vx + vy * vy + vz * vz);
+      if (d < 1e-9) return null;
+      var ux = vx / d;
+      var uy = vy / d;
+      var uz = vz / d;
+
+      // Discontinuity at (0, 0, 1) directly behind
+      if (uz >= 0.999999) return null;
+
+      var stelCanvas = document.getElementById('stel-canvas');
+      if (!stelCanvas) return null;
+      var w = stelCanvas.clientWidth;
+      var h = stelCanvas.clientHeight;
+      if (w <= 0 || h <= 0) return null;
+
+      var aspect = w / h;
+      var fov = stel.core.fov;
+      var fovy;
+      if (aspect < 1) {
+        fovy = 4 * Math.atan(Math.tan(fov / 4) / aspect);
+      } else {
+        fovy = fov;
+      }
+
+      var fovy2 = 2 * Math.atan(2 * Math.tan(fovy / 4));
+      var f = 1.0 / Math.tan(fovy2 / 2);
+
+      var hStereo = 0.5 * (1.0 - uz);
+      var px = ux / hStereo;
+      var py = uy / hStereo;
+
+      var p0 = (f / aspect) * px;
+      var p1 = f * py;
+
+      var winX = (+p0 + 1) / 2 * w;
+      var winY = (-p1 + 1) / 2 * h;
+
+      var cosAng = Math.max(-1, Math.min(1, -uz));
+      var angDistDeg = Math.acos(cosAng) * 180 / Math.PI;
+
+      var onScreen = (uz < 0) && (winX >= 0 && winX <= w && winY >= 0 && winY <= h);
+
+      return {
+        x: winX,
+        y: winY,
+        onScreen: onScreen,
+        inFront: uz < 0,
+        dirX: vx,
+        dirY: -vy,
+        angDistDeg: angDistDeg,
+        width: w,
+        height: h
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function drawRoundedRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.arcTo(x + width, y, x + width, y + radius, radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+    ctx.lineTo(x + radius, y + height);
+    ctx.arcTo(x, y + height, x, y + height - radius, radius);
+    ctx.lineTo(x, y + radius);
+    ctx.arcTo(x, y, x + radius, y, radius);
+    ctx.closePath();
+  }
+
+  function drawOnScreenReticle(ctx, x, y, telescope, isNight) {
+    var mainColor, glowColor, statusText;
+    var now = Date.now();
+
+    if (isNight) {
+      if (telescope.isSlewing) {
+        mainColor = '#FF5252';
+        glowColor = 'rgba(255, 82, 82, 0.6)';
+        statusText = 'SLEWING';
+      } else if (telescope.isTracking) {
+        mainColor = '#FF3333';
+        glowColor = 'rgba(255, 51, 51, 0.5)';
+        statusText = 'SCOPE';
+      } else {
+        mainColor = '#B71C1C';
+        glowColor = 'rgba(183, 28, 28, 0.3)';
+        statusText = 'SCOPE (OFF)';
+      }
+    } else {
+      if (telescope.isSlewing) {
+        mainColor = '#FF9100';
+        glowColor = 'rgba(255, 145, 0, 0.6)';
+        statusText = 'SLEWING';
+      } else if (telescope.isTracking) {
+        mainColor = '#00E5FF';
+        glowColor = 'rgba(0, 229, 255, 0.5)';
+        statusText = 'SCOPE';
+      } else {
+        mainColor = '#90A4AE';
+        glowColor = 'rgba(144, 164, 174, 0.35)';
+        statusText = 'SCOPE (OFF)';
+      }
+    }
+
+    ctx.save();
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 6;
+    ctx.strokeStyle = mainColor;
+    ctx.fillStyle = mainColor;
+
+    // Outer circle
+    var outerRadius = 23;
+    ctx.beginPath();
+    ctx.arc(x, y, outerRadius, 0, 2 * Math.PI);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Inner circle (pulsing if slewing)
+    var innerRadius = 8;
+    if (telescope.isSlewing) {
+      var pulse = 0.5 + 0.5 * Math.sin(now / 150);
+      innerRadius = 7 + 2 * pulse;
+      ctx.globalAlpha = 0.7 + 0.3 * pulse;
+    }
+    ctx.beginPath();
+    ctx.arc(x, y, innerRadius, 0, 2 * Math.PI);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Center point
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // 4 crosshair ticks (rotating slightly when slewing)
+    var tickAngleOffset = telescope.isSlewing ? (now / 600) % (Math.PI / 2) : 0;
+    ctx.lineWidth = 1.5;
+    for (var i = 0; i < 4; i++) {
+      var angle = tickAngleOffset + i * (Math.PI / 2);
+      var cosA = Math.cos(angle);
+      var sinA = Math.sin(angle);
+      var r1 = outerRadius - 3;
+      var r2 = outerRadius + 6;
+      ctx.beginPath();
+      ctx.moveTo(x + r1 * cosA, y + r1 * sinA);
+      ctx.lineTo(x + r2 * cosA, y + r2 * sinA);
+      ctx.stroke();
+    }
+
+    // Corner brackets at 45 deg, radius 30px
+    var bracketR = 30;
+    var bracketArc = 14 * Math.PI / 180;
+    ctx.lineWidth = 1.0;
+    for (var b = 0; b < 4; b++) {
+      var bAngle = (Math.PI / 4) + b * (Math.PI / 2);
+      ctx.beginPath();
+      ctx.arc(x, y, bracketR, bAngle - bracketArc / 2, bAngle + bracketArc / 2);
+      ctx.stroke();
+    }
+
+    // Badge pill below reticle
+    ctx.shadowBlur = 0;
+    var badgeY = y + outerRadius + 14;
+    ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    var textMetrics = ctx.measureText(statusText);
+    var textW = textMetrics.width;
+    var padX = 6;
+    var badgeW = textW + padX * 2;
+    var badgeH = 16;
+    var badgeX = x - badgeW / 2;
+
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.75)';
+    drawRoundedRect(ctx, badgeX, badgeY - badgeH / 2, badgeW, badgeH, 4);
+    ctx.fill();
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = mainColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(statusText, x, badgeY);
+
+    ctx.restore();
+  }
+
+  function drawOffScreenIndicator(ctx, proj, telescope, isNight) {
+    var w = proj.width;
+    var h = proj.height;
+    var cx = w / 2;
+    var cy = h / 2;
+
+    var dx = proj.dirX;
+    var dy = proj.dirY;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    var nx = len < 1e-6 ? 0 : dx / len;
+    var ny = len < 1e-6 ? 1 : dy / len;
+
+    // Viewport padding margins
+    var padX = 36;
+    var padTop = 64;
+    var padBottom = 54;
+
+    var xmin = padX;
+    var xmax = w - padX;
+    var ymin = padTop;
+    var ymax = h - padBottom;
+
+    var tx = nx > 0 ? (xmax - cx) / nx : (nx < 0 ? (xmin - cx) / nx : 1e9);
+    var ty = ny > 0 ? (ymax - cy) / ny : (ny < 0 ? (ymin - cy) / ny : 1e9);
+    var t = Math.min(tx, ty);
+
+    var ex = cx + nx * t;
+    var ey = cy + ny * t;
+    var phi = Math.atan2(ny, nx);
+
+    var mainColor, glowColor;
+    if (isNight) {
+      mainColor = telescope.isSlewing ? '#FF5252' : (telescope.isTracking ? '#FF3333' : '#B71C1C');
+      glowColor = 'rgba(255, 51, 51, 0.5)';
+    } else {
+      mainColor = telescope.isSlewing ? '#FF9100' : (telescope.isTracking ? '#00E5FF' : '#90A4AE');
+      glowColor = telescope.isSlewing ? 'rgba(255, 145, 0, 0.5)' : 'rgba(0, 229, 255, 0.4)';
+    }
+
+    ctx.save();
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = mainColor;
+    ctx.strokeStyle = mainColor;
+
+    // Draw directional pointer arrow
+    ctx.save();
+    ctx.translate(ex, ey);
+    ctx.rotate(phi);
+    ctx.beginPath();
+    ctx.moveTo(9, 0);
+    ctx.lineTo(-8, -6);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(-8, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Badge text: SCOPE + angular separation
+    ctx.shadowBlur = 0;
+    var distText = Math.round(proj.angDistDeg) + '°';
+    var badgeText = 'SCOPE ' + distText;
+    ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    var textW = ctx.measureText(badgeText).width;
+    var badgeW = textW + 12;
+    var badgeH = 18;
+
+    // Position badge inward from the pointer arrow
+    var offsetInward = 24 + badgeW / 2;
+    var bx = ex - nx * offsetInward;
+    var by = ey - ny * offsetInward;
+
+    // Clamp badge within visible area
+    bx = Math.max(badgeW / 2 + 10, Math.min(w - badgeW / 2 - 10, bx));
+    by = Math.max(badgeH / 2 + 50, Math.min(h - badgeH / 2 - 40, by));
+
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.82)';
+    drawRoundedRect(ctx, bx - badgeW / 2, by - badgeH / 2, badgeW, badgeH, 5);
+    ctx.fill();
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = mainColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(badgeText, bx, by);
+
+    ctx.restore();
+  }
+
+  function renderReticleLoop() {
+    requestAnimationFrame(renderReticleLoop);
+
+    if (!reticleCanvas) {
+      reticleCanvas = document.getElementById('reticle-canvas');
+      if (reticleCanvas) reticleCtx = reticleCanvas.getContext('2d');
+    }
+    if (!reticleCanvas || !reticleCtx) return;
+
+    var stelCanvas = document.getElementById('stel-canvas');
+    if (!stelCanvas) return;
+
+    var w = stelCanvas.clientWidth;
+    var h = stelCanvas.clientHeight;
+    if (w <= 0 || h <= 0) return;
+
+    var dpr = window.devicePixelRatio || 1;
+    var rw = Math.round(w * dpr);
+    var rh = Math.round(h * dpr);
+
+    if (reticleCanvas.width !== rw || reticleCanvas.height !== rh) {
+      reticleCanvas.width = rw;
+      reticleCanvas.height = rh;
+    }
+
+    reticleCtx.clearRect(0, 0, rw, rh);
+
+    if (!_telescope || !ready || !stel) return;
+
+    reticleCtx.save();
+    reticleCtx.scale(dpr, dpr);
+
+    var proj = projectCoordinates(_telescope.raHours, _telescope.decDeg);
+    if (proj) {
+      var isNight = false;
+      var root = document.getElementById('stel-root');
+      if (root && root.classList.contains('night-mode')) {
+        isNight = true;
+      }
+
+      if (proj.onScreen) {
+        drawOnScreenReticle(reticleCtx, proj.x, proj.y, _telescope, isNight);
+      } else {
+        drawOffScreenIndicator(reticleCtx, proj, _telescope, isNight);
+      }
+    }
+
+    reticleCtx.restore();
+  }
+
+  function startReticleLoop() {
+    if (reticleLoopActive) return;
+    reticleLoopActive = true;
+    requestAnimationFrame(renderReticleLoop);
+  }
+
   function probeWebGl() {
     try {
       var probe = document.createElement('canvas');
@@ -634,6 +1010,7 @@
     waitForCanvas(canvas, function (size) {
       log('canvas ' + size.width + 'x' + size.height + ' dpr=' + size.dpr);
       bootEngine(canvas, baseUrl, wasmUrl, skyDataUrl);
+      startReticleLoop();
     });
   }
 
@@ -645,6 +1022,10 @@
 
   window.MlastroSky = {
     isReady: function () { return ready; },
+
+    setTelescope: setTelescope,
+
+    centerOnTelescope: centerOnTelescope,
 
     releaseInput: releaseEngineInput,
 
