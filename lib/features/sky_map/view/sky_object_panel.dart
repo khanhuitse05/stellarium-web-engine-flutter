@@ -16,6 +16,9 @@ class SkyObjectPanel extends StatefulWidget {
     this.onStop,
     this.slewProgressText,
     this.expandedBuilder,
+    this.backgroundColor,
+    this.borderColor,
+    this.accentColor,
     super.key,
   });
 
@@ -29,6 +32,9 @@ class SkyObjectPanel extends StatefulWidget {
   final VoidCallback? onStop;
   final String? slewProgressText;
   final Widget Function(BuildContext context, SkyObject object)? expandedBuilder;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final Color? accentColor;
 
   @override
   State<SkyObjectPanel> createState() => _SkyObjectPanelState();
@@ -50,6 +56,17 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
     final theme = Theme.of(context);
     final isNight = theme.brightness == Brightness.dark &&
         theme.scaffoldBackgroundColor == Colors.black;
+    final effectiveBgColor = widget.backgroundColor ??
+        (isNight
+            ? const Color(0xEE1E0505)
+            : Colors.black.withValues(alpha: 0.88));
+    final effectiveBorderColor = widget.borderColor ??
+        (isNight
+            ? const Color(0x88FF2222)
+            : theme.colorScheme.primary.withValues(alpha: 0.45));
+    final effectiveAccentColor = widget.accentColor ??
+        (isNight ? const Color(0xFFFF5252) : theme.colorScheme.primary);
+
     final object = widget.object;
     final isSlewing = widget.isSlewing;
     final onStop = widget.onStop;
@@ -62,16 +79,12 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
     final hasDetails = widget.expandedBuilder != null || widget.onMoreDetails != null;
 
     return Material(
-      color: isNight
-          ? const Color(0xEE1E0505)
-          : Colors.black.withValues(alpha: 0.88),
+      color: effectiveBgColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isNight
-              ? const Color(0x88FF2222)
-              : Colors.white.withValues(alpha: 0.15),
-          width: 1,
+          color: effectiveBorderColor,
+          width: 1.2,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -244,11 +257,11 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
                         side: BorderSide(
                           color: isNight
                               ? Colors.red.withValues(alpha: 0.5)
-                              : (_expanded ? Colors.cyanAccent.withValues(alpha: 0.6) : Colors.white24),
+                              : (_expanded ? effectiveAccentColor.withValues(alpha: 0.6) : Colors.white24),
                         ),
                         foregroundColor: isNight
                             ? const Color(0xFFFF8888)
-                            : (_expanded ? Colors.cyanAccent : Colors.white),
+                            : (_expanded ? effectiveAccentColor : Colors.white),
                       ),
                       onPressed: () {
                         if (widget.expandedBuilder != null) {
@@ -350,7 +363,7 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
                         visualDensity: VisualDensity.compact,
                         backgroundColor: isNight
                             ? const Color(0xFFCC1111)
-                            : Theme.of(context).colorScheme.primary,
+                            : effectiveAccentColor,
                       ),
                       onPressed: onGoto,
                       icon: const Icon(Icons.navigation, size: 16),

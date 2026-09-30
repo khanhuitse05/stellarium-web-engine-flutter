@@ -9,6 +9,9 @@ class SkyMapLoadingOverlay extends StatefulWidget {
     this.errorMessage,
     this.onRetry,
     this.isNightMode = false,
+    this.accentColor,
+    this.secondaryColor,
+    this.backgroundColors,
     super.key,
   });
 
@@ -16,6 +19,9 @@ class SkyMapLoadingOverlay extends StatefulWidget {
   final String? errorMessage;
   final VoidCallback? onRetry;
   final bool isNightMode;
+  final Color? accentColor;
+  final Color? secondaryColor;
+  final List<Color>? backgroundColors;
 
   @override
   State<SkyMapLoadingOverlay> createState() => _SkyMapLoadingOverlayState();
@@ -67,8 +73,15 @@ class _SkyMapLoadingOverlayState extends State<SkyMapLoadingOverlay>
     }
 
     final isNight = widget.isNightMode;
-    final primaryColor = isNight ? const Color(0xFFFF5252) : const Color(0xFF00E5FF);
-    final secondaryColor = isNight ? const Color(0xFFFF8888) : const Color(0xFF80D8FF);
+    final primaryColor = widget.accentColor ??
+        (isNight ? const Color(0xFFFF5252) : const Color(0xFF00E5FF));
+    final secondaryColor = widget.secondaryColor ??
+        (isNight ? const Color(0xFFFF8888) : const Color(0xFF80D8FF));
+    final rawBgColors = widget.backgroundColors ??
+        (isNight
+            ? const [Color(0xFF1E0505), Color(0xFF060913)]
+            : const [Color(0xFF0F172A), Color(0xFF060913)]);
+    final bgColors = rawBgColors.map((c) => c.withValues(alpha: 1.0)).toList();
     final hasError = widget.errorMessage != null && widget.errorMessage!.isNotEmpty;
 
     return IgnorePointer(
@@ -85,14 +98,11 @@ class _SkyMapLoadingOverlayState extends State<SkyMapLoadingOverlay>
         child: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: RadialGradient(
-              center: Alignment(0.0, -0.1),
+              center: const Alignment(0.0, -0.1),
               radius: 1.2,
-              colors: [
-                Color(0xFF0F172A), // Deep cosmic midnight blue
-                Color(0xFF060913), // Deep space black
-              ],
+              colors: bgColors,
             ),
           ),
           child: SafeArea(

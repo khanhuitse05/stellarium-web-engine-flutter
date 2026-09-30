@@ -51,6 +51,12 @@ class SkyMapPage extends StatelessWidget {
     this.showLicensesButton = true,
     this.showSearchButton = true,
     this.appBarActions = const [],
+    this.panelBackgroundColor,
+    this.panelBorderColor,
+    this.panelAccentColor,
+    this.loadingAccentColor,
+    this.loadingSecondaryColor,
+    this.loadingBackgroundColors,
   });
 
   final SkyMapCubitFactory? createCubit;
@@ -69,6 +75,12 @@ class SkyMapPage extends StatelessWidget {
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
+  final Color? panelBackgroundColor;
+  final Color? panelBorderColor;
+  final Color? panelAccentColor;
+  final Color? loadingAccentColor;
+  final Color? loadingSecondaryColor;
+  final List<Color>? loadingBackgroundColors;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +103,12 @@ class SkyMapPage extends StatelessWidget {
         showLicensesButton: showLicensesButton,
         showSearchButton: showSearchButton,
         appBarActions: appBarActions,
+        panelBackgroundColor: panelBackgroundColor,
+        panelBorderColor: panelBorderColor,
+        panelAccentColor: panelAccentColor,
+        loadingAccentColor: loadingAccentColor,
+        loadingSecondaryColor: loadingSecondaryColor,
+        loadingBackgroundColors: loadingBackgroundColors,
       ),
     );
   }
@@ -112,6 +130,12 @@ class _SkyMapView extends StatefulWidget {
     required this.showLicensesButton,
     required this.showSearchButton,
     required this.appBarActions,
+    this.panelBackgroundColor,
+    this.panelBorderColor,
+    this.panelAccentColor,
+    this.loadingAccentColor,
+    this.loadingSecondaryColor,
+    this.loadingBackgroundColors,
   });
 
   final RouteObserver<ModalRoute<void>>? routeObserver;
@@ -128,6 +152,12 @@ class _SkyMapView extends StatefulWidget {
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
+  final Color? panelBackgroundColor;
+  final Color? panelBorderColor;
+  final Color? panelAccentColor;
+  final Color? loadingAccentColor;
+  final Color? loadingSecondaryColor;
+  final List<Color>? loadingBackgroundColors;
 
   @override
   State<_SkyMapView> createState() => _SkyMapViewState();
@@ -208,6 +238,9 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
             hudBuilder: widget.hudBuilder,
             overlayBuilder: widget.overlayBuilder,
             hasCustomToolbar: hasCustomToolbar,
+            panelBackgroundColor: widget.panelBackgroundColor,
+            panelBorderColor: widget.panelBorderColor,
+            panelAccentColor: widget.panelAccentColor,
           ),
           if (hasCustomToolbar)
             Positioned(
@@ -224,6 +257,9 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
               return SkyMapLoadingOverlay(
                 isReady: state.mapReady,
                 isNightMode: state.config.nightMode,
+                accentColor: widget.loadingAccentColor,
+                secondaryColor: widget.loadingSecondaryColor,
+                backgroundColors: widget.loadingBackgroundColors,
                 onRetry: () => _cubit.start(),
               );
             },
@@ -268,6 +304,9 @@ class _SkyMapOverlayLayer extends StatelessWidget {
     this.hudBuilder,
     this.overlayBuilder,
     this.hasCustomToolbar = false,
+    this.panelBackgroundColor,
+    this.panelBorderColor,
+    this.panelAccentColor,
   });
 
   final SkyMapObjectAction? onGoto;
@@ -280,6 +319,9 @@ class _SkyMapOverlayLayer extends StatelessWidget {
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
   final bool hasCustomToolbar;
+  final Color? panelBackgroundColor;
+  final Color? panelBorderColor;
+  final Color? panelAccentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -375,6 +417,9 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                       ? null
                       : () => onMoreDetails!(context, selected),
                   expandedBuilder: expandedDetailsBuilder,
+                  backgroundColor: panelBackgroundColor,
+                  borderColor: panelBorderColor,
+                  accentColor: panelAccentColor,
                   onCopyCoordinates: (onGoto == null && onSync == null)
                       ? () => copySkyObjectCoordinates(context, selected)
                       : null,
@@ -389,6 +434,8 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                   isNight: state.config.nightMode,
                   progressText: slewProgressText,
                   onStop: onStop!,
+                  backgroundColor: panelBackgroundColor,
+                  borderColor: panelBorderColor,
                 ),
               ),
           ],
@@ -403,22 +450,28 @@ class _FloatingSlewDock extends StatelessWidget {
     required this.isNight,
     required this.onStop,
     this.progressText,
+    this.backgroundColor,
+    this.borderColor,
   });
 
   final bool isNight;
   final VoidCallback onStop;
   final String? progressText;
+  final Color? backgroundColor;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isNight
-          ? const Color(0xEE1E0505)
-          : Colors.black.withValues(alpha: 0.88),
+      color: backgroundColor ??
+          (isNight
+              ? const Color(0xEE1E0505)
+              : Colors.black.withValues(alpha: 0.88)),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isNight ? const Color(0x88FF2222) : const Color(0x66FFA000),
+          color: borderColor ??
+              (isNight ? const Color(0x88FF2222) : const Color(0x66FFA000)),
           width: 1.2,
         ),
       ),
