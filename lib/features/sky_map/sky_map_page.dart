@@ -355,7 +355,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
               Positioned(
                 left: 12,
                 right: 12,
-                bottom: (selected != null ? 168 : 16) + bottomInset,
+                bottom: (selected != null ? 184 : 16) + bottomInset,
                 child: Material(
                   elevation: 6,
                   color: const Color(0xF0151C2C),
