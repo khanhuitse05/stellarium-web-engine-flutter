@@ -78,6 +78,8 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
     final onMoreDetails = widget.onMoreDetails;
     final hasDetails = widget.expandedBuilder != null || widget.onMoreDetails != null;
 
+    final isBelowHorizon = !object.isAboveHorizon;
+
     return Material(
       color: effectiveBgColor,
       shape: RoundedRectangleBorder(
@@ -312,15 +314,22 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         visualDensity: VisualDensity.compact,
                         side: BorderSide(
-                          color: isNight
-                              ? Colors.amber.withValues(alpha: 0.6)
-                              : Colors.amberAccent.withValues(alpha: 0.6),
+                          color: isBelowHorizon
+                              ? (isNight
+                                  ? const Color(0x33FF2222)
+                                  : Colors.white12)
+                              : (isNight
+                                  ? Colors.amber.withValues(alpha: 0.6)
+                                  : Colors.amberAccent.withValues(alpha: 0.6)),
                         ),
                         foregroundColor: isNight
                             ? const Color(0xFFFFCC66)
                             : Colors.amberAccent,
+                        disabledForegroundColor: isNight
+                            ? const Color(0x55FFCC66)
+                            : Colors.white38,
                       ),
-                      onPressed: onSync,
+                      onPressed: isBelowHorizon ? null : onSync,
                       icon: const Icon(Icons.sync, size: 16),
                       label: const Text('Sync', style: TextStyle(fontSize: 12)),
                     ),
@@ -364,8 +373,14 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
                         backgroundColor: isNight
                             ? const Color(0xFFCC1111)
                             : effectiveAccentColor,
+                        disabledBackgroundColor: isNight
+                            ? const Color(0x33440000)
+                            : Colors.white.withValues(alpha: 0.08),
+                        disabledForegroundColor: isNight
+                            ? const Color(0x66FF6666)
+                            : Colors.white38,
                       ),
-                      onPressed: onGoto,
+                      onPressed: isBelowHorizon ? null : onGoto,
                       icon: const Icon(Icons.navigation, size: 16),
                       label:
                           const Text('Goto', style: TextStyle(fontSize: 12)),
