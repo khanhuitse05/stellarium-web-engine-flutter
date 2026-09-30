@@ -54,8 +54,10 @@ class _SkyMapLoadingOverlayState extends State<SkyMapLoadingOverlay>
   @override
   void didUpdateWidget(covariant SkyMapLoadingOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isReady && widget.isReady) {
-      // Begin fade out
+    if (oldWidget.isReady && !widget.isReady) {
+      setState(() {
+        _removedFromTree = false;
+      });
     }
   }
 
@@ -83,15 +85,16 @@ class _SkyMapLoadingOverlayState extends State<SkyMapLoadingOverlay>
             : const [Color(0xFF0F172A), Color(0xFF060913)]);
     final bgColors = rawBgColors.map((c) => c.withValues(alpha: 1.0)).toList();
     final hasError = widget.errorMessage != null && widget.errorMessage!.isNotEmpty;
+    final shouldHide = widget.isReady;
 
     return IgnorePointer(
-      ignoring: widget.isReady,
+      ignoring: shouldHide,
       child: AnimatedOpacity(
-        opacity: widget.isReady ? 0.0 : 1.0,
+        opacity: shouldHide ? 0.0 : 1.0,
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOutCubic,
         onEnd: () {
-          if (widget.isReady && mounted) {
+          if (shouldHide && mounted) {
             setState(() => _removedFromTree = true);
           }
         },

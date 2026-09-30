@@ -30,6 +30,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   final Stream<SkyMapTelescopePosition?>? _telescopePositionStream;
 
   WebViewController? _web;
+  bool _bridgeReady = false;
   Timer? _utcTimer;
   StreamSubscription<SkyMapTelescopePosition?>? _telescopeSub;
 
@@ -66,13 +67,17 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     unawaited(_pushTelescopeToMap(position));
   }
 
-  void onMapReady() {
-    emit(state.copyWith(mapReady: true, clearStatus: true));
-    unawaited(_pushObserverToMap(state.utc));
-    unawaited(_pushConfigToMap(state.config));
+  Future<void> onMapReady() async {
+    if (_bridgeReady) return;
+    _bridgeReady = true;
+    await _pushObserverToMap(state.utc);
+    await _pushConfigToMap(state.config);
     if (state.telescope != null) {
-      unawaited(_pushTelescopeToMap(state.telescope));
+      await _pushTelescopeToMap(state.telescope);
     }
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (isClosed) return;
+    emit(state.copyWith(mapReady: true, clearStatus: true));
   }
 
   void onMapError(String message) {
@@ -235,7 +240,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
 
   Future<void> _pushObserverToMap(DateTime utc) async {
     final web = _web;
-    if (web == null || !state.mapReady) return;
+    if (web == null || !_bridgeReady) return;
     final iso = utc.toIso8601String();
     final lat = state.observerLat;
     final lon = state.observerLonEast;
@@ -248,7 +253,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
 
   Future<void> _pushConfigToMap(SkyMapConfig config) async {
     final web = _web;
-    if (web == null || !state.mapReady) return;
+    if (web == null || !_bridgeReady) return;
     try {
       await web.runJavaScript(
         'window.MlastroSky.setConfig(${jsonEncode(config.toJson())});',
@@ -258,7 +263,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
 
   Future<void> _pushTelescopeToMap(SkyMapTelescopePosition? pos) async {
     final web = _web;
-    if (web == null || !state.mapReady) return;
+    if (web == null || !_bridgeReady) return;
     try {
       if (pos == null) {
         await web.runJavaScript('window.MlastroSky.setTelescope(null);');
@@ -325,7 +330,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
 
   Future<void> _runMapJs(String script) async {
     final web = _web;
-    if (web == null || !state.mapReady) return;
+    if (web == null || !_bridgeReady) return;
     try {
       await web.runJavaScript(script);
     } catch (_) {}
@@ -405,6 +410,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
 
   @override
   Future<void> close() async {
+    _bridgeReady = false;
     _utcTimer?.cancel();
     _statusDismissTimer?.cancel();
     await _telescopeSub?.cancel();

@@ -140,7 +140,7 @@ class _SkyMapWebViewState extends State<SkyMapWebView> {
       switch (type) {
         case 'ready':
           _readyWatchdog?.cancel();
-          widget.cubit.onMapReady();
+          unawaited(widget.cubit.onMapReady());
         case 'log':
           if (payload != null) {
             xLog.d('SkyMap JS: $payload');
