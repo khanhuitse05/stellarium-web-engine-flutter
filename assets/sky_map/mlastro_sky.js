@@ -527,6 +527,7 @@
   // Live Telescope Reticle & Stereographic Projection Subsystem
   // -------------------------------------------------------------
   var _telescope = null; // { raHours, decDeg, isTracking, isSlewing }
+  var _displayTelescope = null; // { raHours, decDeg } for smooth interpolation
   var reticleCanvas = null;
   var reticleCtx = null;
   var reticleLoopActive = false;
@@ -534,13 +535,28 @@
   function setTelescope(raHours, decDeg, isTracking, isSlewing) {
     if (raHours === null || raHours === undefined || isNaN(Number(raHours))) {
       _telescope = null;
+      _displayTelescope = null;
     } else {
+      var targetRa = Number(raHours);
+      var targetDec = Number(decDeg);
       _telescope = {
-        raHours: Number(raHours),
-        decDeg: Number(decDeg),
+        raHours: targetRa,
+        decDeg: targetDec,
         isTracking: Boolean(isTracking),
         isSlewing: Boolean(isSlewing)
       };
+      if (!_displayTelescope) {
+        _displayTelescope = { raHours: targetRa, decDeg: targetDec };
+      } else {
+        // If coordinate difference is very large (e.g. > 15 deg or initial sync), snap immediately
+        var dRaSnap = Math.abs(targetRa - _displayTelescope.raHours);
+        if (dRaSnap > 12) dRaSnap = Math.abs(dRaSnap - 24);
+        var dDecSnap = Math.abs(targetDec - _displayTelescope.decDeg);
+        if (dRaSnap > 1.0 || dDecSnap > 15.0) {
+          _displayTelescope.raHours = targetRa;
+          _displayTelescope.decDeg = targetDec;
+        }
+      }
     }
   }
 
@@ -872,10 +888,30 @@
 
     if (!_telescope || !ready || !stel) return;
 
+    if (_displayTelescope) {
+      var dRa = _telescope.raHours - _displayTelescope.raHours;
+      if (dRa > 12) dRa -= 24;
+      else if (dRa < -12) dRa += 24;
+      var dDec = _telescope.decDeg - _displayTelescope.decDeg;
+
+      if (Math.abs(dRa) < 1e-7 && Math.abs(dDec) < 1e-7) {
+        _displayTelescope.raHours = _telescope.raHours;
+        _displayTelescope.decDeg = _telescope.decDeg;
+      } else {
+        var lerpFactor = 0.2;
+        _displayTelescope.raHours += dRa * lerpFactor;
+        if (_displayTelescope.raHours >= 24) _displayTelescope.raHours -= 24;
+        else if (_displayTelescope.raHours < 0) _displayTelescope.raHours += 24;
+        _displayTelescope.decDeg += dDec * lerpFactor;
+      }
+    } else {
+      _displayTelescope = { raHours: _telescope.raHours, decDeg: _telescope.decDeg };
+    }
+
     reticleCtx.save();
     reticleCtx.scale(dpr, dpr);
 
-    var proj = projectCoordinates(_telescope.raHours, _telescope.decDeg);
+    var proj = projectCoordinates(_displayTelescope.raHours, _displayTelescope.decDeg);
     if (proj) {
       var isNight = false;
       var root = document.getElementById('stel-root');
