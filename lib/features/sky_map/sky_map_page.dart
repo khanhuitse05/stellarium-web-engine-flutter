@@ -48,6 +48,7 @@ class SkyMapPage extends StatelessWidget {
     this.toolbarBuilder,
     this.hudBuilder,
     this.overlayBuilder,
+    this.showObjectPanel = true,
     this.showLicensesButton = true,
     this.showSearchButton = true,
     this.appBarActions = const [],
@@ -72,6 +73,7 @@ class SkyMapPage extends StatelessWidget {
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
+  final bool showObjectPanel;
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
@@ -100,6 +102,7 @@ class SkyMapPage extends StatelessWidget {
         toolbarBuilder: toolbarBuilder,
         hudBuilder: hudBuilder,
         overlayBuilder: overlayBuilder,
+        showObjectPanel: showObjectPanel,
         showLicensesButton: showLicensesButton,
         showSearchButton: showSearchButton,
         appBarActions: appBarActions,
@@ -127,6 +130,7 @@ class _SkyMapView extends StatefulWidget {
     required this.toolbarBuilder,
     required this.hudBuilder,
     required this.overlayBuilder,
+    this.showObjectPanel = true,
     required this.showLicensesButton,
     required this.showSearchButton,
     required this.appBarActions,
@@ -149,6 +153,7 @@ class _SkyMapView extends StatefulWidget {
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
+  final bool showObjectPanel;
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
@@ -237,6 +242,7 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
             expandedDetailsBuilder: widget.expandedDetailsBuilder,
             hudBuilder: widget.hudBuilder,
             overlayBuilder: widget.overlayBuilder,
+            showObjectPanel: widget.showObjectPanel,
             hasCustomToolbar: hasCustomToolbar,
             panelBackgroundColor: widget.panelBackgroundColor,
             panelBorderColor: widget.panelBorderColor,
@@ -303,6 +309,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
     this.expandedDetailsBuilder,
     this.hudBuilder,
     this.overlayBuilder,
+    this.showObjectPanel = true,
     this.hasCustomToolbar = false,
     this.panelBackgroundColor,
     this.panelBorderColor,
@@ -318,6 +325,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
+  final bool showObjectPanel;
   final bool hasCustomToolbar;
   final Color? panelBackgroundColor;
   final Color? panelBorderColor;
@@ -395,7 +403,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                   ),
                 ),
               ),
-            if (selected != null)
+            if (showObjectPanel && selected != null)
               Positioned(
                 key: ValueKey(selected.id),
                 left: 12,
