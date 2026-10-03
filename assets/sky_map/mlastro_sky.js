@@ -372,11 +372,14 @@
           core.lines.azimuthal.visible = !!config.showAzimuthalGrid;
         }
         if (config.showEquatorialGrid !== undefined) {
-          if (core.lines.equatorial_jnow) {
-            core.lines.equatorial_jnow.visible = !!config.showEquatorialGrid;
-          }
+          var showEq = !!config.showEquatorialGrid;
           if (core.lines.equatorial) {
-            core.lines.equatorial.visible = !!config.showEquatorialGrid;
+            core.lines.equatorial.visible = showEq;
+            if (core.lines.equatorial_jnow) {
+              core.lines.equatorial_jnow.visible = false;
+            }
+          } else if (core.lines.equatorial_jnow) {
+            core.lines.equatorial_jnow.visible = showEq;
           }
         }
         if (config.showMeridianLine !== undefined && core.lines.meridian) {

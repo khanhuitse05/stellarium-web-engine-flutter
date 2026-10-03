@@ -13,7 +13,7 @@ class SkyMapAssetLoader {
 
   static const _assetPrefix = SkyMapAssets.prefix;
   static const _versionFile = '.installed_version';
-  static const _version = '21';
+  static const _version = '22';
 
   static const _bundledAssets = SkyMapAssets.bundled;
 
