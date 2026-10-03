@@ -666,11 +666,11 @@
       } else if (telescope.isTracking) {
         mainColor = '#FF3333';
         glowColor = 'rgba(255, 51, 51, 0.5)';
-        statusText = 'SCOPE';
+        statusText = 'TRACKING';
       } else {
         mainColor = '#B71C1C';
         glowColor = 'rgba(183, 28, 28, 0.3)';
-        statusText = 'SCOPE (OFF)';
+        statusText = 'TRACKING OFF';
       }
     } else {
       if (telescope.isSlewing) {
@@ -680,11 +680,11 @@
       } else if (telescope.isTracking) {
         mainColor = '#00E5FF';
         glowColor = 'rgba(0, 229, 255, 0.5)';
-        statusText = 'SCOPE';
+        statusText = 'TRACKING';
       } else {
         mainColor = '#90A4AE';
         glowColor = 'rgba(144, 164, 174, 0.35)';
-        statusText = 'SCOPE (OFF)';
+        statusText = 'TRACKING (OFF)';
       }
     }
 
