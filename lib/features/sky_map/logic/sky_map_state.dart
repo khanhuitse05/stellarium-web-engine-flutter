@@ -19,10 +19,24 @@ final class SkyMapState extends Equatable {
     this.statusLine,
   });
 
-  factory SkyMapState.initial() => SkyMapState(
+  /// Default longitude derived from device timezone (15° per hour of UTC offset).
+  /// This ensures local solar time matches the device clock so night tests render night sky immediately.
+  static double get defaultLongitudeEast {
+    final offsetHours = DateTime.now().timeZoneOffset.inMinutes / 60.0;
+    return (offsetHours * 15.0).clamp(-180.0, 180.0);
+  }
+
+  /// Default observer latitude (Vietnam / tropical standard default).
+  static const double defaultLatitude = 10.0;
+
+  factory SkyMapState.initial({
+    double? initialLat,
+    double? initialLonEast,
+  }) =>
+      SkyMapState(
         utc: DateTime.now().toUtc(),
-        observerLat: 0,
-        observerLonEast: 0,
+        observerLat: initialLat ?? defaultLatitude,
+        observerLonEast: initialLonEast ?? defaultLongitudeEast,
       );
 
   final DateTime utc;

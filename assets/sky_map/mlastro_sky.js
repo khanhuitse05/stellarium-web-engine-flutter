@@ -490,9 +490,19 @@
     return true;
   }
 
+  function getDefaultLongitude() {
+    try {
+      var offsetMinutes = -new Date().getTimezoneOffset();
+      return (offsetMinutes / 60.0) * 15.0;
+    } catch (e) {
+      return 106.0;
+    }
+  }
+
   function setDefaultObserver(engine) {
     try {
-      if (!setObserverOnEngine(engine, 10, 106, null)) {
+      var defaultLon = getDefaultLongitude();
+      if (!setObserverOnEngine(engine, 10, defaultLon, null)) {
         log('setDefaultObserver: observer not available yet');
       }
     } catch (e) {
@@ -529,13 +539,13 @@
   // -------------------------------------------------------------
   // Live Telescope Reticle & Stereographic Projection Subsystem
   // -------------------------------------------------------------
-  var _telescope = null; // { raHours, decDeg, isTracking, isSlewing }
+  var _telescope = null; // { raHours, decDeg, isTracking, isSlewing, isParked, isAtHome }
   var _displayTelescope = null; // { raHours, decDeg } for smooth interpolation
   var reticleCanvas = null;
   var reticleCtx = null;
   var reticleLoopActive = false;
 
-  function setTelescope(raHours, decDeg, isTracking, isSlewing) {
+  function setTelescope(raHours, decDeg, isTracking, isSlewing, isParked, isAtHome) {
     if (raHours === null || raHours === undefined || isNaN(Number(raHours))) {
       _telescope = null;
       _displayTelescope = null;
@@ -546,7 +556,9 @@
         raHours: targetRa,
         decDeg: targetDec,
         isTracking: Boolean(isTracking),
-        isSlewing: Boolean(isSlewing)
+        isSlewing: Boolean(isSlewing),
+        isParked: Boolean(isParked),
+        isAtHome: Boolean(isAtHome)
       };
       if (!_displayTelescope) {
         _displayTelescope = { raHours: targetRa, decDeg: targetDec };
@@ -663,6 +675,14 @@
         mainColor = '#FF5252';
         glowColor = 'rgba(255, 82, 82, 0.6)';
         statusText = 'SLEWING';
+      } else if (telescope.isParked) {
+        mainColor = '#FF8A80';
+        glowColor = 'rgba(255, 138, 128, 0.5)';
+        statusText = 'PARK';
+      } else if (telescope.isAtHome) {
+        mainColor = '#FF6E40';
+        glowColor = 'rgba(255, 110, 64, 0.5)';
+        statusText = 'AT HOME';
       } else if (telescope.isTracking) {
         mainColor = '#FF3333';
         glowColor = 'rgba(255, 51, 51, 0.5)';
@@ -677,6 +697,14 @@
         mainColor = '#FF9100';
         glowColor = 'rgba(255, 145, 0, 0.6)';
         statusText = 'SLEWING';
+      } else if (telescope.isParked) {
+        mainColor = '#FFAB40';
+        glowColor = 'rgba(255, 171, 64, 0.5)';
+        statusText = 'PARK';
+      } else if (telescope.isAtHome) {
+        mainColor = '#448AFF';
+        glowColor = 'rgba(68, 138, 255, 0.5)';
+        statusText = 'AT HOME';
       } else if (telescope.isTracking) {
         mainColor = '#00E5FF';
         glowColor = 'rgba(0, 229, 255, 0.5)';
@@ -684,7 +712,7 @@
       } else {
         mainColor = '#90A4AE';
         glowColor = 'rgba(144, 164, 174, 0.35)';
-        statusText = 'TRACKING (OFF)';
+        statusText = 'TRACKING OFF';
       }
     }
 
@@ -803,11 +831,39 @@
 
     var mainColor, glowColor;
     if (isNight) {
-      mainColor = telescope.isSlewing ? '#FF5252' : (telescope.isTracking ? '#FF3333' : '#B71C1C');
-      glowColor = 'rgba(255, 51, 51, 0.5)';
+      if (telescope.isSlewing) {
+        mainColor = '#FF5252';
+        glowColor = 'rgba(255, 82, 82, 0.6)';
+      } else if (telescope.isParked) {
+        mainColor = '#FF8A80';
+        glowColor = 'rgba(255, 138, 128, 0.5)';
+      } else if (telescope.isAtHome) {
+        mainColor = '#FF6E40';
+        glowColor = 'rgba(255, 110, 64, 0.5)';
+      } else if (telescope.isTracking) {
+        mainColor = '#FF3333';
+        glowColor = 'rgba(255, 51, 51, 0.5)';
+      } else {
+        mainColor = '#B71C1C';
+        glowColor = 'rgba(183, 28, 28, 0.3)';
+      }
     } else {
-      mainColor = telescope.isSlewing ? '#FF9100' : (telescope.isTracking ? '#00E5FF' : '#90A4AE');
-      glowColor = telescope.isSlewing ? 'rgba(255, 145, 0, 0.5)' : 'rgba(0, 229, 255, 0.4)';
+      if (telescope.isSlewing) {
+        mainColor = '#FF9100';
+        glowColor = 'rgba(255, 145, 0, 0.5)';
+      } else if (telescope.isParked) {
+        mainColor = '#FFAB40';
+        glowColor = 'rgba(255, 171, 64, 0.5)';
+      } else if (telescope.isAtHome) {
+        mainColor = '#448AFF';
+        glowColor = 'rgba(68, 138, 255, 0.4)';
+      } else if (telescope.isTracking) {
+        mainColor = '#00E5FF';
+        glowColor = 'rgba(0, 229, 255, 0.4)';
+      } else {
+        mainColor = '#90A4AE';
+        glowColor = 'rgba(144, 164, 174, 0.35)';
+      }
     }
 
     ctx.save();

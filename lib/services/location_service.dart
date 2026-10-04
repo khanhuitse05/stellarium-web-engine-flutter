@@ -2,6 +2,30 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
+  static Position? _cachedPosition;
+
+  /// Fast synchronous-like check (<10ms) for last known position to prevent
+  /// day/night jumping while waiting for a fresh GPS fix.
+  Future<Position?> getLastKnownPosition() async {
+    if (_cachedPosition != null) return _cachedPosition;
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+      final pos = await Geolocator.getLastKnownPosition();
+      if (pos != null) {
+        _cachedPosition = pos;
+      }
+      return pos;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Position> getCurrentPosition({
     LocationAccuracy accuracy = LocationAccuracy.medium,
     Duration timeLimit = const Duration(seconds: 6),
@@ -29,18 +53,23 @@ class LocationService {
     }
 
     // Attempt fast fallback to last known position if available
-    Position? lastKnown;
+    Position? lastKnown = _cachedPosition;
     try {
-      lastKnown = await Geolocator.getLastKnownPosition();
+      lastKnown ??= await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        _cachedPosition = lastKnown;
+      }
     } catch (_) {}
 
     try {
-      return await Geolocator.getCurrentPosition(
+      final fresh = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(
           accuracy: accuracy,
           timeLimit: timeLimit,
         ),
       );
+      _cachedPosition = fresh;
+      return fresh;
     } on TimeoutException {
       if (lastKnown != null) {
         return lastKnown;

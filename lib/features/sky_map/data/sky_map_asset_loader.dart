@@ -13,7 +13,7 @@ class SkyMapAssetLoader {
 
   static const _assetPrefix = SkyMapAssets.prefix;
   static const _versionFile = '.installed_version';
-  static const _version = '22';
+  static const _version = '23';
 
   static const _bundledAssets = SkyMapAssets.bundled;
 
@@ -28,6 +28,7 @@ class SkyMapAssetLoader {
         final v = await _readVersion(marker);
         if (v == _version && await _skyDataReady(root)) {
           xLog.d('SkyMap: using installed assets at ${root.path}');
+          await _syncWebAssets(root);
           return root.path;
         }
         xLog.w(
@@ -88,6 +89,30 @@ class SkyMapAssetLoader {
 
     await _extractSkyData(root);
     await File('${root.path}/$_versionFile').writeAsString(_version);
+  }
+
+  /// Always syncs lightweight web assets (JS/HTML) from the app bundle to disk,
+  /// ensuring edits take effect immediately without requiring full skydata re-extraction.
+  static Future<void> _syncWebAssets(Directory root) async {
+    final webAssets = [
+      '${_assetPrefix}index.html',
+      '${_assetPrefix}mlastro_sky.js',
+    ];
+    for (final key in webAssets) {
+      final relative = key.substring(_assetPrefix.length);
+      final out = File('${root.path}/$relative');
+      try {
+        final data = await rootBundle.load(key);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
+        await out.writeAsBytes(bytes, flush: true);
+        xLog.d('SkyMap: synced $key (${bytes.length} bytes)');
+      } catch (e, st) {
+        xLog.w('SkyMap: failed syncing $key: $e\n$st');
+      }
+    }
   }
 
   static Future<void> _extractSkyData(Directory root) async {

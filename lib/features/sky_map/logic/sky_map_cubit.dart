@@ -18,10 +18,15 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     LocationService? location,
     Stream<SkyMapTelescopePosition?>? telescopePositionStream,
     SkyMapConfig? initialConfig,
+    double? initialLat,
+    double? initialLonEast,
   })  : _location = location ?? LocationService(),
         _telescopePositionStream = telescopePositionStream,
         super(
-          SkyMapState.initial().copyWith(
+          SkyMapState.initial(
+            initialLat: initialLat,
+            initialLonEast: initialLonEast,
+          ).copyWith(
             config: initialConfig ?? const SkyMapConfig(),
           ),
         );
@@ -199,6 +204,23 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   }
 
   Future<void> _loadLocation() async {
+    // 1. Instant check for last known location (<10ms) to prevent day/night flashes
+    try {
+      final lastKnown = await _location.getLastKnownPosition();
+      if (lastKnown != null && !isClosed) {
+        emit(
+          state.copyWith(
+            observerLat: lastKnown.latitude,
+            observerLonEast: lastKnown.longitude,
+            locationReady: true,
+            clearStatus: true,
+          ),
+        );
+        unawaited(_pushObserverToMap(state.utc));
+      }
+    } catch (_) {}
+
+    // 2. Fetch fresh live fix in background
     try {
       final pos = await _location.getCurrentPosition(
         accuracy: LocationAccuracy.medium,
@@ -216,7 +238,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
         await _pushObserverToMap(state.utc);
       }
     } on LocationServiceException catch (e) {
-      if (!isClosed) {
+      if (!isClosed && !state.locationReady) {
         emit(
           state.copyWith(
             locationReady: false,
@@ -226,7 +248,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
         _scheduleStatusDismissal();
       }
     } catch (_) {
-      if (!isClosed) {
+      if (!isClosed && !state.locationReady) {
         emit(
           state.copyWith(
             locationReady: false,
@@ -269,7 +291,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
         await web.runJavaScript('window.MlastroSky.setTelescope(null);');
       } else {
         await web.runJavaScript(
-          'window.MlastroSky.setTelescope(${pos.raHours}, ${pos.decDeg}, ${pos.isTracking}, ${pos.isSlewing});',
+          'window.MlastroSky.setTelescope(${pos.raHours}, ${pos.decDeg}, ${pos.isTracking}, ${pos.isSlewing}, ${pos.isParked}, ${pos.isAtHome});',
         );
       }
     } catch (_) {}

@@ -91,6 +91,9 @@ class _TelescopeDashboardPageState extends State<TelescopeDashboardPage> {
       SkyMapTelescopePosition(
         raHours: _currentRaHours,
         decDeg: _currentDecDeg,
+        isTracking: _mountState == _MountState.tracking,
+        isSlewing: _mountState == _MountState.slewing,
+        isParked: _mountState == _MountState.parked,
       ),
     );
   }

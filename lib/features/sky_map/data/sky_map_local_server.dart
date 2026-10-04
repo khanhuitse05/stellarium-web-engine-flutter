@@ -61,6 +61,14 @@ class SkyMapLocalServer {
       final bytes = await file.readAsBytes();
       request.response.headers.contentType = _contentTypeFor(file.path);
       request.response.contentLength = bytes.length;
+      if (path.endsWith('.html') || path.endsWith('.js')) {
+        request.response.headers.set(
+          HttpHeaders.cacheControlHeader,
+          'no-cache, no-store, must-revalidate',
+        );
+        request.response.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
+        request.response.headers.set(HttpHeaders.expiresHeader, '0');
+      }
       request.response.add(bytes);
       await request.response.close();
     } catch (e, st) {

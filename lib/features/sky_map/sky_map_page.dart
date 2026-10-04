@@ -37,6 +37,8 @@ class SkyMapPage extends StatelessWidget {
     super.key,
     this.createCubit,
     this.initialConfig,
+    this.initialLat,
+    this.initialLonEast,
     this.routeObserver,
     this.onGoto,
     this.onSync,
@@ -62,6 +64,8 @@ class SkyMapPage extends StatelessWidget {
 
   final SkyMapCubitFactory? createCubit;
   final SkyMapConfig? initialConfig;
+  final double? initialLat;
+  final double? initialLonEast;
   final RouteObserver<ModalRoute<void>>? routeObserver;
   final SkyMapObjectAction? onGoto;
   final SkyMapObjectAction? onSync;
@@ -88,7 +92,11 @@ class SkyMapPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => (createCubit?.call() ??
-          SkyMapCubit(initialConfig: initialConfig))
+          SkyMapCubit(
+            initialConfig: initialConfig,
+            initialLat: initialLat,
+            initialLonEast: initialLonEast,
+          ))
         ..start(),
       child: _SkyMapView(
         routeObserver: routeObserver,
