@@ -16,6 +16,8 @@ final class SkyMapState extends Equatable {
     this.telescope,
     this.locationReady = false,
     this.mapReady = false,
+    this.sensorTrackingActive = false,
+    this.sensorAvailable = false,
     this.statusLine,
   });
 
@@ -50,6 +52,8 @@ final class SkyMapState extends Equatable {
   final SkyMapTelescopePosition? telescope;
   final bool locationReady;
   final bool mapReady;
+  final bool sensorTrackingActive;
+  final bool sensorAvailable;
   final String? statusLine;
 
   SkyMapState copyWith({
@@ -66,6 +70,8 @@ final class SkyMapState extends Equatable {
     bool clearTelescope = false,
     bool? locationReady,
     bool? mapReady,
+    bool? sensorTrackingActive,
+    bool? sensorAvailable,
     String? statusLine,
     bool clearStatus = false,
   }) {
@@ -81,6 +87,8 @@ final class SkyMapState extends Equatable {
       telescope: clearTelescope ? null : (telescope ?? this.telescope),
       locationReady: locationReady ?? this.locationReady,
       mapReady: mapReady ?? this.mapReady,
+      sensorTrackingActive: sensorTrackingActive ?? this.sensorTrackingActive,
+      sensorAvailable: sensorAvailable ?? this.sensorAvailable,
       statusLine: clearStatus ? null : (statusLine ?? this.statusLine),
     );
   }
@@ -98,6 +106,8 @@ final class SkyMapState extends Equatable {
         telescope,
         locationReady,
         mapReady,
+        sensorTrackingActive,
+        sensorAvailable,
         statusLine,
       ];
 }

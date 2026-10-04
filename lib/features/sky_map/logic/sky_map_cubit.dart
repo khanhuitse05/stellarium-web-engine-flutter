@@ -11,17 +11,20 @@ import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object_kind.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_point_long_press_event.dart';
 import 'package:mlastro_skymap/services/location_service.dart';
+import 'package:mlastro_skymap/services/sky_map_orientation_service.dart';
 import 'package:mlastro_skymap/utils/logger.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class SkyMapCubit extends Cubit<SkyMapState> {
   SkyMapCubit({
     LocationService? location,
+    SkyMapOrientationService? orientationService,
     Stream<SkyMapTelescopePosition?>? telescopePositionStream,
     SkyMapConfig? initialConfig,
     double? initialLat,
     double? initialLonEast,
   })  : _location = location ?? LocationService(),
+        _orientationService = orientationService ?? SkyMapOrientationService(),
         _telescopePositionStream = telescopePositionStream,
         super(
           SkyMapState.initial(
@@ -29,16 +32,21 @@ class SkyMapCubit extends Cubit<SkyMapState> {
             initialLonEast: initialLonEast,
           ).copyWith(
             config: initialConfig ?? const SkyMapConfig(),
+            sensorAvailable: (orientationService ?? SkyMapOrientationService()).isSupported,
           ),
         );
 
   final LocationService _location;
+  final SkyMapOrientationService _orientationService;
   final Stream<SkyMapTelescopePosition?>? _telescopePositionStream;
 
   WebViewController? _web;
   bool _bridgeReady = false;
   Timer? _utcTimer;
   StreamSubscription<SkyMapTelescopePosition?>? _telescopeSub;
+  StreamSubscription<SkyOrientation>? _orientationSub;
+  bool _isPushingOrientation = false;
+  SkyOrientation? _pendingOrientation;
   final _longPressController = StreamController<SkyPointLongPressEvent>.broadcast();
 
   Stream<SkyPointLongPressEvent> get longPressStream => _longPressController.stream;
@@ -276,6 +284,98 @@ class SkyMapCubit extends Cubit<SkyMapState> {
 
   Future<void> zoomOut() async {
     await _runMapJs('window.MlastroSky.zoomBy(10);');
+  }
+
+  Future<void> toggleSensorTracking() async {
+    if (state.sensorTrackingActive) {
+      await stopSensorTracking();
+    } else {
+      await startSensorTracking();
+    }
+  }
+
+  Future<void> startSensorTracking() async {
+    if (!_orientationService.isSupported) {
+      emit(state.copyWith(statusLine: 'Sensors unavailable on this platform'));
+      _scheduleStatusDismissal(duration: const Duration(seconds: 3));
+      return;
+    }
+
+    final granted = await _orientationService.requestPermission();
+    if (!granted) {
+      emit(state.copyWith(statusLine: 'Sensor permission denied'));
+      _scheduleStatusDismissal(duration: const Duration(seconds: 3));
+      return;
+    }
+
+    await _orientationSub?.cancel();
+    _orientationService.reset();
+    _pendingOrientation = null;
+
+    emit(
+      state.copyWith(
+        sensorTrackingActive: true,
+        statusLine: 'Sensor tracking active — point phone to explore sky',
+      ),
+    );
+    _scheduleStatusDismissal(duration: const Duration(seconds: 3));
+
+    _orientationSub = _orientationService.stream().listen(
+      _pushOrientationToMap,
+      onError: (Object e) {
+        xLog.e('SkyMap: orientation stream error: $e');
+        unawaited(stopSensorTracking());
+      },
+    );
+  }
+
+  Future<void> stopSensorTracking({bool notifyUser = false}) async {
+    await _orientationSub?.cancel();
+    _orientationSub = null;
+    _pendingOrientation = null;
+
+    emit(
+      state.copyWith(
+        sensorTrackingActive: false,
+        statusLine: notifyUser ? 'Sensor tracking paused' : null,
+      ),
+    );
+    if (notifyUser) {
+      _scheduleStatusDismissal(duration: const Duration(seconds: 2));
+    }
+
+    await _runMapJs('window.MlastroSky.resetSensorOrientation();');
+  }
+
+  void onUserPan() {
+    if (state.sensorTrackingActive) {
+      xLog.d('SkyMap: user touched/panned map — pausing sensor tracking');
+      unawaited(stopSensorTracking(notifyUser: true));
+    }
+  }
+
+  void _pushOrientationToMap(SkyOrientation orientation) {
+    final web = _web;
+    if (web == null || !_bridgeReady) return;
+
+    _pendingOrientation = orientation;
+    if (_isPushingOrientation) return;
+
+    _isPushingOrientation = true;
+    unawaited(() async {
+      try {
+        while (_pendingOrientation != null && state.sensorTrackingActive && !isClosed) {
+          final toSend = _pendingOrientation!;
+          _pendingOrientation = null;
+          await web.runJavaScript(
+            'window.MlastroSky.setSensorOrientation(${toSend.azimuthDeg.toStringAsFixed(2)}, ${toSend.altitudeDeg.toStringAsFixed(2)}, ${toSend.rollDeg.toStringAsFixed(2)});',
+          );
+        }
+      } catch (_) {
+      } finally {
+        _isPushingOrientation = false;
+      }
+    }());
   }
 
   Future<void> _loadLocation() async {
@@ -516,6 +616,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     _bridgeReady = false;
     _utcTimer?.cancel();
     _statusDismissTimer?.cancel();
+    await _orientationSub?.cancel();
     await _telescopeSub?.cancel();
     await _longPressController.close();
     return super.close();

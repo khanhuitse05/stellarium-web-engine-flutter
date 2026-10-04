@@ -1292,12 +1292,15 @@
     }
 
     function onMove(e) {
-      if (!holdTimer || !holdStartPos) return;
+      if (!holdStartPos) return;
       var dx = e.clientX - holdStartPos.clientX;
       var dy = e.clientY - holdStartPos.clientY;
-      if (Math.sqrt(dx * dx + dy * dy) > 10) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
+      if (Math.sqrt(dx * dx + dy * dy) > 12) {
+        if (holdTimer) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
+        post('user_pan', {});
       }
     }
 
@@ -1414,6 +1417,36 @@
         stel.lookAt(obsVector, 0.5);
       } catch (e) {
         log('lookTowards: ' + e);
+      }
+    },
+
+    setSensorOrientation: function (azDeg, altDeg, rollDeg) {
+      if (!ready || !stel) return;
+      try {
+        var azRad = azDeg * Math.PI / 180;
+        var altRad = altDeg * Math.PI / 180;
+        var obsVector = stel.s2c(azRad, altRad);
+        stel.lookAt(obsVector, 0);
+        if (rollDeg !== undefined && rollDeg !== null) {
+          var obs = (stel.core && stel.core.observer) ? stel.core.observer : stel.observer;
+          if (obs && typeof obs.roll !== 'undefined') {
+            obs.roll = rollDeg * Math.PI / 180;
+          }
+        }
+      } catch (e) {
+        log('setSensorOrientation: ' + e);
+      }
+    },
+
+    resetSensorOrientation: function () {
+      if (!ready || !stel) return;
+      try {
+        var obs = (stel.core && stel.core.observer) ? stel.core.observer : stel.observer;
+        if (obs && typeof obs.roll !== 'undefined') {
+          obs.roll = 0;
+        }
+      } catch (e) {
+        log('resetSensorOrientation: ' + e);
       }
     },
 

@@ -14,4 +14,5 @@ export 'features/sky_map/view/sky_map_search_sheet.dart';
 export 'features/sky_map/view/sky_map_web_view.dart';
 export 'features/sky_map/view/sky_object_panel.dart';
 export 'services/location_service.dart';
+export 'services/sky_map_orientation_service.dart';
 export 'sky_map_assets.dart';
