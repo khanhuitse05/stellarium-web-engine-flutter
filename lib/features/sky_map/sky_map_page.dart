@@ -8,6 +8,7 @@ import 'package:mlastro_skymap/features/sky_map/logic/sky_map_state.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
+import 'package:mlastro_skymap/features/sky_map/model/sky_object_kind.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_point_long_press_event.dart';
 import 'package:mlastro_skymap/features/sky_map/view/open_source_licenses_page.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_map_loading_overlay.dart';
@@ -257,49 +258,57 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
                   ),
               ],
             ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          SkyMapWebView(cubit: _cubit),
-          _SkyMapOverlayLayer(
-            onGoto: widget.onGoto,
-            onSync: widget.onSync,
-            onStop: widget.onStop,
-            isSlewing: widget.isSlewing,
-            slewProgressText: widget.slewProgressText,
-            onMoreDetails: widget.onMoreDetails,
-            expandedDetailsBuilder: widget.expandedDetailsBuilder,
-            hudBuilder: widget.hudBuilder,
-            overlayBuilder: widget.overlayBuilder,
-            showObjectPanel: widget.showObjectPanel,
-            hasCustomToolbar: hasCustomToolbar,
-            panelBackgroundColor: widget.panelBackgroundColor,
-            panelBorderColor: widget.panelBorderColor,
-            panelAccentColor: widget.panelAccentColor,
-          ),
-          if (hasCustomToolbar)
-            Positioned(
-              top: MediaQuery.paddingOf(context).top,
-              left: 0,
-              right: 0,
-              child: widget.toolbarBuilder!(context, _cubit),
+      body: BlocListener<SkyMapCubit, SkyMapState>(
+        listenWhen: (prev, next) =>
+            prev.selected?.id != next.selected?.id &&
+            next.selected?.kind != SkyObjectKind.customPoint,
+        listener: (context, state) {
+          _cubit.clearTargetRing();
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            SkyMapWebView(cubit: _cubit),
+            _SkyMapOverlayLayer(
+              onGoto: widget.onGoto,
+              onSync: widget.onSync,
+              onStop: widget.onStop,
+              isSlewing: widget.isSlewing,
+              slewProgressText: widget.slewProgressText,
+              onMoreDetails: widget.onMoreDetails,
+              expandedDetailsBuilder: widget.expandedDetailsBuilder,
+              hudBuilder: widget.hudBuilder,
+              overlayBuilder: widget.overlayBuilder,
+              showObjectPanel: widget.showObjectPanel,
+              hasCustomToolbar: hasCustomToolbar,
+              panelBackgroundColor: widget.panelBackgroundColor,
+              panelBorderColor: widget.panelBorderColor,
+              panelAccentColor: widget.panelAccentColor,
             ),
-          BlocBuilder<SkyMapCubit, SkyMapState>(
-            buildWhen: (prev, next) =>
-                prev.mapReady != next.mapReady ||
-                prev.config.nightMode != next.config.nightMode,
-            builder: (context, state) {
-              return SkyMapLoadingOverlay(
-                isReady: state.mapReady,
-                isNightMode: state.config.nightMode,
-                accentColor: widget.loadingAccentColor,
-                secondaryColor: widget.loadingSecondaryColor,
-                backgroundColors: widget.loadingBackgroundColors,
-                onRetry: () => _cubit.start(),
-              );
-            },
-          ),
-        ],
+            if (hasCustomToolbar)
+              Positioned(
+                top: MediaQuery.paddingOf(context).top,
+                left: 0,
+                right: 0,
+                child: widget.toolbarBuilder!(context, _cubit),
+              ),
+            BlocBuilder<SkyMapCubit, SkyMapState>(
+              buildWhen: (prev, next) =>
+                  prev.mapReady != next.mapReady ||
+                  prev.config.nightMode != next.config.nightMode,
+              builder: (context, state) {
+                return SkyMapLoadingOverlay(
+                  isReady: state.mapReady,
+                  isNightMode: state.config.nightMode,
+                  accentColor: widget.loadingAccentColor,
+                  secondaryColor: widget.loadingSecondaryColor,
+                  backgroundColors: widget.loadingBackgroundColors,
+                  onRetry: () => _cubit.start(),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

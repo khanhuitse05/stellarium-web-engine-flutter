@@ -98,12 +98,16 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     final object = _objectFromPayload(payload);
     if (object != null) {
       _logSelected(object, source: 'tap');
+      clearTargetRing();
       emit(state.copyWith(selected: object));
     }
   }
 
   void selectObject(SkyObject object) {
     _logSelected(object, source: 'select');
+    if (object.kind != SkyObjectKind.customPoint) {
+      clearTargetRing();
+    }
     emit(state.copyWith(selected: object));
   }
 
@@ -384,6 +388,9 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     final web = _web;
     if (web == null || !state.mapReady) return;
     _logSelected(object, source: 'search');
+    if (object.kind != SkyObjectKind.customPoint) {
+      clearTargetRing();
+    }
     emit(state.copyWith(selected: object));
     try {
       await web.runJavaScript(
@@ -395,6 +402,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   Future<void> selectById(String id) async {
     final web = _web;
     if (web == null || !state.mapReady) return;
+    clearTargetRing();
     try {
       await web.runJavaScript(
         'window.MlastroSky.selectById(${jsonEncode(id)});',

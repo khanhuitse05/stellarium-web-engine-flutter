@@ -284,6 +284,7 @@
       lastSelectionId = null;
       return;
     }
+    temporaryRing = null;
     var payload = objectPayload(sel);
     if (!payload) return;
     if (payload.id === lastSelectionId) return;
@@ -1463,6 +1464,7 @@
     selectById: function (id) {
       if (!ready || !stel || !id) return;
       try {
+        temporaryRing = null;
         var obj = stel.getObj(id);
         if (!obj) return;
         stel.core.selection = obj;
