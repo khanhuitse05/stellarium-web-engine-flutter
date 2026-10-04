@@ -9,6 +9,7 @@ import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object_kind.dart';
+import 'package:mlastro_skymap/features/sky_map/model/sky_point_long_press_event.dart';
 import 'package:mlastro_skymap/services/location_service.dart';
 import 'package:mlastro_skymap/utils/logger.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -38,6 +39,9 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   bool _bridgeReady = false;
   Timer? _utcTimer;
   StreamSubscription<SkyMapTelescopePosition?>? _telescopeSub;
+  final _longPressController = StreamController<SkyPointLongPressEvent>.broadcast();
+
+  Stream<SkyPointLongPressEvent> get longPressStream => _longPressController.stream;
 
   void attachWebController(WebViewController controller) {
     _web = controller;
@@ -98,9 +102,50 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     }
   }
 
+  void selectObject(SkyObject object) {
+    _logSelected(object, source: 'select');
+    emit(state.copyWith(selected: object));
+  }
+
   void deselectObject() {
     emit(state.copyWith(clearSelected: true));
     unawaited(_runMapJs('window.MlastroSky.dismissPanel();'));
+    clearTargetRing();
+  }
+
+  void onSkyPointLongPress(Map<String, dynamic> payload) {
+    final aboveHorizon = payload['aboveHorizon'] as bool? ?? false;
+    final ra = (payload['raHours'] as num?)?.toDouble() ?? 0.0;
+    final dec = (payload['decDeg'] as num?)?.toDouble() ?? 0.0;
+    final alt = (payload['altDeg'] as num?)?.toDouble() ?? 0.0;
+    final az = (payload['azDeg'] as num?)?.toDouble() ?? 0.0;
+
+    SkyObject? object;
+    final objPayload = payload['object'];
+    if (objPayload is Map) {
+      object = _objectFromPayload(Map<String, dynamic>.from(objPayload));
+    }
+
+    final event = SkyPointLongPressEvent(
+      aboveHorizon: aboveHorizon,
+      raHours: ra,
+      decDeg: dec,
+      altDeg: alt,
+      azDeg: az,
+      object: object,
+    );
+
+    if (!_longPressController.isClosed) {
+      _longPressController.add(event);
+    }
+  }
+
+  void clearTargetRing() {
+    unawaited(
+      _runMapJs(
+        'window.MlastroSky && window.MlastroSky.clearTargetRing && window.MlastroSky.clearTargetRing();',
+      ),
+    );
   }
 
   Future<void> updateConfig(SkyMapConfig config) async {
@@ -438,6 +483,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     _utcTimer?.cancel();
     _statusDismissTimer?.cancel();
     await _telescopeSub?.cancel();
+    await _longPressController.close();
     return super.close();
   }
 }

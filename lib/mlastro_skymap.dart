@@ -6,6 +6,7 @@ export 'features/sky_map/model/sky_map_config.dart';
 export 'features/sky_map/model/sky_map_telescope_position.dart';
 export 'features/sky_map/model/sky_object.dart';
 export 'features/sky_map/model/sky_object_kind.dart';
+export 'features/sky_map/model/sky_point_long_press_event.dart';
 export 'features/sky_map/sky_map_page.dart';
 export 'features/sky_map/view/open_source_licenses_page.dart';
 export 'features/sky_map/view/sky_map_loading_overlay.dart';

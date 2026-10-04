@@ -8,6 +8,7 @@ import 'package:mlastro_skymap/features/sky_map/logic/sky_map_state.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
+import 'package:mlastro_skymap/features/sky_map/model/sky_point_long_press_event.dart';
 import 'package:mlastro_skymap/features/sky_map/view/open_source_licenses_page.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_map_loading_overlay.dart';
 import 'package:mlastro_skymap/features/sky_map/view/sky_map_search_sheet.dart';
@@ -18,6 +19,10 @@ typedef SkyMapCubitFactory = SkyMapCubit Function();
 typedef SkyMapObjectAction = Future<void> Function(
   BuildContext context,
   SkyObject object,
+);
+typedef SkyMapLongPressAction = void Function(
+  BuildContext context,
+  SkyPointLongPressEvent event,
 );
 typedef SkyMapToolbarBuilder = Widget Function(
   BuildContext context,
@@ -47,6 +52,7 @@ class SkyMapPage extends StatelessWidget {
     this.slewProgressText,
     this.onMoreDetails,
     this.expandedDetailsBuilder,
+    this.onSkyPointLongPress,
     this.toolbarBuilder,
     this.hudBuilder,
     this.overlayBuilder,
@@ -74,6 +80,7 @@ class SkyMapPage extends StatelessWidget {
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
+  final SkyMapLongPressAction? onSkyPointLongPress;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -107,6 +114,7 @@ class SkyMapPage extends StatelessWidget {
         slewProgressText: slewProgressText,
         onMoreDetails: onMoreDetails,
         expandedDetailsBuilder: expandedDetailsBuilder,
+        onSkyPointLongPress: onSkyPointLongPress,
         toolbarBuilder: toolbarBuilder,
         hudBuilder: hudBuilder,
         overlayBuilder: overlayBuilder,
@@ -135,6 +143,7 @@ class _SkyMapView extends StatefulWidget {
     required this.slewProgressText,
     required this.onMoreDetails,
     this.expandedDetailsBuilder,
+    this.onSkyPointLongPress,
     required this.toolbarBuilder,
     required this.hudBuilder,
     required this.overlayBuilder,
@@ -158,6 +167,7 @@ class _SkyMapView extends StatefulWidget {
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
+  final SkyMapLongPressAction? onSkyPointLongPress;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -178,6 +188,16 @@ class _SkyMapView extends StatefulWidget {
 
 class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
   SkyMapCubit get _cubit => context.read<SkyMapCubit>();
+  StreamSubscription<SkyPointLongPressEvent>? _longPressSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _longPressSub = _cubit.longPressStream.listen((event) {
+      if (!mounted) return;
+      widget.onSkyPointLongPress?.call(context, event);
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -191,6 +211,7 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
 
   @override
   void dispose() {
+    _longPressSub?.cancel();
     widget.routeObserver?.unsubscribe(this);
     super.dispose();
   }

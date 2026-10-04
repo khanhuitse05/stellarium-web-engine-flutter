@@ -654,6 +654,79 @@
     }
   }
 
+  function unprojectCoordinates(winX, winY) {
+    if (!ready || !stel) return null;
+    try {
+      var stelCanvas = document.getElementById('stel-canvas');
+      if (!stelCanvas) return null;
+      var w = stelCanvas.clientWidth;
+      var h = stelCanvas.clientHeight;
+      if (w <= 0 || h <= 0) return null;
+
+      var aspect = w / h;
+      var fov = stel.core.fov;
+      var fovy;
+      if (aspect < 1) {
+        fovy = 4 * Math.atan(Math.tan(fov / 4) / aspect);
+      } else {
+        fovy = fov;
+      }
+
+      var fovy2 = 2 * Math.atan(2 * Math.tan(fovy / 4));
+      var f = 1.0 / Math.tan(fovy2 / 2);
+
+      var p0 = 2 * (winX / w) - 1;
+      var p1 = 1 - 2 * (winY / h);
+
+      var px = p0 / (f / aspect);
+      var py = p1 / f;
+
+      var r2 = px * px + py * py;
+      var hStereo = 4.0 / (r2 + 4.0);
+      var ux = px * hStereo;
+      var uy = py * hStereo;
+      var uz = (r2 - 4.0) / (r2 + 4.0);
+
+      var obs = stel.core.observer;
+      var vView = [ux, uy, uz];
+
+      // Observed horizontal coordinates (Alt/Az)
+      var vObs = stel.convertFrame(obs, 'VIEW', 'OBSERVED', vView);
+      if (!vObs) return null;
+      var altaz = stel.c2s(vObs);
+      var azDeg = stel.anp(altaz[0]) * 180 / Math.PI;
+      var altDeg = altaz[1] * 180 / Math.PI;
+
+      // Equatorial ICRF J2000 coordinates (RA/Dec)
+      var vIcrf = stel.convertFrame(obs, 'VIEW', 'ICRF', vView);
+      if (!vIcrf) return null;
+      var radec = stel.c2s(vIcrf);
+      var raHours = stel.anp(radec[0]) * 12 / Math.PI;
+      var decDeg = stel.anpm(radec[1]) * 180 / Math.PI;
+
+      return {
+        raHours: raHours,
+        decDeg: decDeg,
+        altDeg: altDeg,
+        azDeg: azDeg,
+        aboveHorizon: altDeg > 0
+      };
+    } catch (e) {
+      log('unprojectCoordinates: ' + e);
+      return null;
+    }
+  }
+
+  function angularDistanceDeg(ra1H, dec1D, ra2H, dec2D) {
+    var r1 = ra1H * Math.PI / 12;
+    var d1 = dec1D * Math.PI / 180;
+    var r2 = ra2H * Math.PI / 12;
+    var d2 = dec2D * Math.PI / 180;
+    var cosD = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(r1 - r2);
+    cosD = Math.max(-1, Math.min(1, cosD));
+    return Math.acos(cosD) * 180 / Math.PI;
+  }
+
   function drawRoundedRect(ctx, x, y, width, height, radius) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -947,7 +1020,65 @@
 
     reticleCtx.clearRect(0, 0, rw, rh);
 
-    if (!_telescope || !ready || !stel) return;
+    reticleCtx.save();
+    reticleCtx.scale(dpr, dpr);
+
+    if (temporaryRing) {
+      var now = performance.now();
+      var elapsed = now - temporaryRing.startTime;
+      if (temporaryRing.duration && temporaryRing.duration > 0 && elapsed > temporaryRing.duration) {
+        temporaryRing = null;
+      } else {
+        var ringX = temporaryRing.x;
+        var ringY = temporaryRing.y;
+        if (temporaryRing.raHours !== undefined && temporaryRing.decDeg !== undefined) {
+          var proj = projectCoordinates(temporaryRing.raHours, temporaryRing.decDeg);
+          if (proj && proj.onScreen) {
+            ringX = proj.x;
+            ringY = proj.y;
+          }
+        }
+
+        var pulse = 1.0 + 0.10 * Math.sin(now / 180.0);
+        var baseRadius = 24 * pulse;
+        var isNightRing = false;
+        var rootEl = document.getElementById('stel-root');
+        if (rootEl && rootEl.classList.contains('night-mode')) {
+          isNightRing = true;
+        }
+
+        reticleCtx.save();
+        reticleCtx.strokeStyle = isNightRing
+          ? 'rgba(255, 82, 82, 0.9)'
+          : 'rgba(0, 229, 255, 0.9)';
+        reticleCtx.lineWidth = 2;
+        reticleCtx.shadowColor = isNightRing ? '#FF5252' : '#00E5FF';
+        reticleCtx.shadowBlur = 8;
+
+        reticleCtx.beginPath();
+        reticleCtx.arc(ringX, ringY, baseRadius, 0, 2 * Math.PI);
+        reticleCtx.stroke();
+
+        var tick = 6;
+        reticleCtx.beginPath();
+        reticleCtx.moveTo(ringX - baseRadius - tick, ringY);
+        reticleCtx.lineTo(ringX - baseRadius + 3, ringY);
+        reticleCtx.moveTo(ringX + baseRadius - 3, ringY);
+        reticleCtx.lineTo(ringX + baseRadius + tick, ringY);
+        reticleCtx.moveTo(ringX, ringY - baseRadius - tick);
+        reticleCtx.lineTo(ringX, ringY - baseRadius + 3);
+        reticleCtx.moveTo(ringX, ringY + baseRadius - 3);
+        reticleCtx.lineTo(ringX, ringY + baseRadius + tick);
+        reticleCtx.stroke();
+
+        reticleCtx.restore();
+      }
+    }
+
+    if (!_telescope || !ready || !stel) {
+      reticleCtx.restore();
+      return;
+    }
 
     if (_displayTelescope) {
       var dRa = _telescope.raHours - _displayTelescope.raHours;
@@ -968,9 +1099,6 @@
     } else {
       _displayTelescope = { raHours: _telescope.raHours, decDeg: _telescope.decDeg };
     }
-
-    reticleCtx.save();
-    reticleCtx.scale(dpr, dpr);
 
     var proj = projectCoordinates(_displayTelescope.raHours, _displayTelescope.decDeg);
     if (proj) {
@@ -1087,6 +1215,104 @@
     }, 45000);
   }
 
+  var holdTimer = null;
+  var holdStartPos = null;
+  var holdTriggered = false;
+  var temporaryRing = null;
+
+  function triggerLongPress(x, y) {
+    if (!ready || !stel) return;
+    holdTriggered = true;
+    holdTimer = null;
+
+    var coords = unprojectCoordinates(x, y);
+    if (!coords) return;
+
+    if (!coords.aboveHorizon) {
+      post('long_press', {
+        aboveHorizon: false,
+        altDeg: coords.altDeg,
+        azDeg: coords.azDeg,
+        raHours: coords.raHours,
+        decDeg: coords.decDeg
+      });
+      return;
+    }
+
+    temporaryRing = {
+      x: x,
+      y: y,
+      raHours: coords.raHours,
+      decDeg: coords.decDeg,
+      startTime: performance.now(),
+      duration: 0
+    };
+
+    var targetObj = null;
+    if (stel.core && stel.core.selection) {
+      var selPayload = objectPayload(stel.core.selection);
+      if (selPayload) {
+        var dist = angularDistanceDeg(coords.raHours, coords.decDeg, selPayload.raHours, selPayload.decDeg);
+        if (dist <= 1.5) {
+          targetObj = selPayload;
+        }
+      }
+    }
+
+    releaseEngineInput(false);
+
+    post('long_press', {
+      aboveHorizon: true,
+      raHours: coords.raHours,
+      decDeg: coords.decDeg,
+      altDeg: coords.altDeg,
+      azDeg: coords.azDeg,
+      object: targetObj
+    });
+  }
+
+  function setupLongPress(canvas) {
+    if (!canvas) return;
+
+    function onDown(e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      if (holdTimer) clearTimeout(holdTimer);
+      holdTriggered = false;
+      var rect = canvas.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var y = e.clientY - rect.top;
+      holdStartPos = { x: x, y: y, clientX: e.clientX, clientY: e.clientY };
+
+      holdTimer = setTimeout(function () {
+        if (holdStartPos) {
+          triggerLongPress(holdStartPos.x, holdStartPos.y);
+        }
+      }, 500);
+    }
+
+    function onMove(e) {
+      if (!holdTimer || !holdStartPos) return;
+      var dx = e.clientX - holdStartPos.clientX;
+      var dy = e.clientY - holdStartPos.clientY;
+      if (Math.sqrt(dx * dx + dy * dy) > 10) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+    }
+
+    function onUp(e) {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+    }
+
+    canvas.addEventListener('pointerdown', onDown, { passive: true });
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerup', onUp, { passive: true });
+    window.addEventListener('pointercancel', onUp, { passive: true });
+  }
+
   function boot() {
     log('boot');
     if (typeof StelWebEngine !== 'function') {
@@ -1107,6 +1333,7 @@
     waitForCanvas(canvas, function (size) {
       log('canvas ' + size.width + 'x' + size.height + ' dpr=' + size.dpr);
       bootEngine(canvas, baseUrl, wasmUrl, skyDataUrl);
+      setupLongPress(canvas);
       startReticleLoop();
     });
   }
@@ -1132,6 +1359,11 @@
 
     dismissPanel: function () {
       lastSelectionId = null;
+      temporaryRing = null;
+    },
+
+    clearTargetRing: function () {
+      temporaryRing = null;
     },
 
     setConfig: function (config) {
