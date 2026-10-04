@@ -405,6 +405,8 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   SkyObjectKind _kindFromString(String? kind) {
     return switch (kind) {
       'planet' => SkyObjectKind.planet,
+      'moon' => SkyObjectKind.moon,
+      'sun' => SkyObjectKind.sun,
       'dso' => SkyObjectKind.dso,
       'messier' => SkyObjectKind.messier,
       'constellation' => SkyObjectKind.constellation,

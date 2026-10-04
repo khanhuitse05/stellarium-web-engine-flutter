@@ -46,6 +46,16 @@ class SkyObject extends Equatable {
   /// Whether the object is currently above the local observer's horizon.
   bool get isAboveHorizon => (altDeg ?? 0) > 0;
 
+  /// Whether this object is the Sun (needs eye/optics safety prompts).
+  bool get isSunTarget {
+    if (kind == SkyObjectKind.sun) return true;
+    final n = name.trim().toLowerCase();
+    if (n == 'sun') return true;
+    final i = id.trim().toLowerCase();
+    if (i == 'sun' || i == 'name sun') return true;
+    return aliases.any((a) => a.trim().toLowerCase() == 'sun');
+  }
+
   /// Formatted compass direction string derived from [azDeg] (e.g. "N", "NE", "SSE").
   String get compassDirection {
     if (azDeg == null) return '';

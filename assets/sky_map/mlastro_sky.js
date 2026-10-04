@@ -69,7 +69,9 @@
       var names = obj.designations();
       if (names && names.length) {
         var n = names[0];
-        if (/^NAME (Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto)/i.test(n)) {
+        if (/^NAME Sun/i.test(n)) return 'sun';
+        if (/^NAME Moon/i.test(n)) return 'moon';
+        if (/^NAME (Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto)/i.test(n)) {
           return 'planet';
         }
         if (/^M\s+\d+/.test(n) || /^NGC\s+/.test(n) || /^IC\s+/.test(n)) return 'dso';
