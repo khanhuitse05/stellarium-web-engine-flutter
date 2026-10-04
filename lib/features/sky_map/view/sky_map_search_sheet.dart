@@ -159,6 +159,7 @@ class _SkyMapSearchSheetState extends State<SkyMapSearchSheet> {
       SkyObjectKind.messier => Icons.blur_circular_rounded,
       SkyObjectKind.caldwell || SkyObjectKind.dso => Icons.scatter_plot_rounded,
       SkyObjectKind.constellation => Icons.polyline_rounded,
+      SkyObjectKind.customPoint => Icons.my_location_rounded,
     };
   }
 

@@ -435,6 +435,11 @@ class _KindBadge extends StatelessWidget {
           isNight ? Colors.redAccent : Colors.tealAccent,
           'CONST'
         ),
+      SkyObjectKind.customPoint => (
+          Icons.my_location_rounded,
+          isNight ? Colors.redAccent : Colors.cyanAccent,
+          'POINT'
+        ),
       _ => (
           Icons.star,
           isNight ? Colors.redAccent : Colors.blueAccent,

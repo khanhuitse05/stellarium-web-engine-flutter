@@ -7,4 +7,7 @@ enum SkyObjectKind {
   sun,
   dso,
   constellation,
+
+  /// Arbitrary sky coordinate picked by long-press (not a catalog object).
+  customPoint,
 }

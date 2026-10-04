@@ -148,6 +148,32 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     );
   }
 
+  /// Selects an arbitrary long-pressed sky coordinate as a
+  /// [SkyObjectKind.customPoint] so it is shown in the standard object panel.
+  ///
+  /// Clears any engine-side selection highlight while keeping the long-press
+  /// target ring visible.
+  SkyObject selectCustomPoint(SkyPointLongPressEvent event) {
+    final object = SkyObject(
+      id: 'custom_point_${event.raHours.toStringAsFixed(4)}_${event.decDeg.toStringAsFixed(4)}',
+      name: 'Custom Point',
+      kind: SkyObjectKind.customPoint,
+      raHours: event.raHours,
+      decDeg: event.decDeg,
+      altDeg: event.altDeg,
+      azDeg: event.azDeg,
+      typeDescription: 'Custom Point',
+    );
+    unawaited(
+      _runMapJs(
+        'window.MlastroSky && window.MlastroSky.releaseInput && window.MlastroSky.releaseInput(true);',
+      ),
+    );
+    _logSelected(object, source: 'long-press');
+    emit(state.copyWith(selected: object));
+    return object;
+  }
+
   Future<void> updateConfig(SkyMapConfig config) async {
     emit(state.copyWith(config: config));
     await _pushConfigToMap(config);
