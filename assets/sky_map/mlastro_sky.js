@@ -279,6 +279,7 @@
 
   function onSelectionChanged() {
     if (!ready || !stel) return;
+    if (performance.now() - lastLimitTapTime < 350) return;
     var sel = stel.core.selection;
     if (!sel) {
       lastSelectionId = null;
@@ -311,7 +312,7 @@
         }
       }
       if (canvas) {
-        ['mouseup', 'pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(
+        ['mouseup', 'pointerup', 'pointercancel'].forEach(
           function (type) {
             try {
               canvas.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
@@ -388,6 +389,10 @@
         if (config.showMeridianLine !== undefined && core.lines.meridian) {
           core.lines.meridian.visible = !!config.showMeridianLine;
         }
+      }
+
+      if (config.showMountLimits !== undefined) {
+        _showMountLimitsConfig = !!config.showMountLimits;
       }
 
       if (config.showAtmosphere !== undefined && core.atmosphere) {
@@ -583,6 +588,131 @@
     window.MlastroSky.centerOn(_telescope.raHours, _telescope.decDeg);
   }
 
+  // -------------------------------------------------------------
+  // Mount Safety Limits Overlay Subsystem
+  // -------------------------------------------------------------
+  var _mountLimits = null;
+  var _showMountLimitsConfig = false;
+  var _renderedLimitLines = [];
+  var lastLimitTapTime = 0;
+
+  function setMountLimits(limits) {
+    if (!limits) {
+      _mountLimits = null;
+    } else {
+      _mountLimits = {
+        minAltDeg: Number(limits.minAltDeg) || 0,
+        maxAltDeg: Number(limits.maxAltDeg) || 90,
+        meridianEastMinutes: Number(limits.meridianEastMinutes) || 0,
+        meridianWestMinutes: Number(limits.meridianWestMinutes) || 0,
+        activePierSide: limits.activePierSide || null,
+        isGem: limits.isGem !== false,
+        labels: limits.labels || {},
+        enabled: limits.enabled !== false
+      };
+    }
+  }
+
+  function projectViewVector(v) {
+    if (!v) return null;
+    var vx = v[0];
+    var vy = v[1];
+    var vz = v[2];
+
+    var d = Math.sqrt(vx * vx + vy * vy + vz * vz);
+    if (d < 1e-9) return null;
+    var ux = vx / d;
+    var uy = vy / d;
+    var uz = vz / d;
+
+    // Discontinuity at (0, 0, 1) directly behind
+    if (uz >= 0.999999) return null;
+
+    var stelCanvas = document.getElementById('stel-canvas');
+    if (!stelCanvas) return null;
+    var w = stelCanvas.clientWidth;
+    var h = stelCanvas.clientHeight;
+    if (w <= 0 || h <= 0) return null;
+
+    var aspect = w / h;
+    var fov = stel.core.fov;
+    var fovy;
+    if (aspect < 1) {
+      fovy = 4 * Math.atan(Math.tan(fov / 4) / aspect);
+    } else {
+      fovy = fov;
+    }
+
+    var fovy2 = 2 * Math.atan(2 * Math.tan(fovy / 4));
+    var f = 1.0 / Math.tan(fovy2 / 2);
+
+    var hStereo = 0.5 * (1.0 - uz);
+    var px = ux / hStereo;
+    var py = uy / hStereo;
+
+    var p0 = (f / aspect) * px;
+    var p1 = f * py;
+
+    var winX = (+p0 + 1) / 2 * w;
+    var winY = (-p1 + 1) / 2 * h;
+
+    var onScreen = (uz < 0) && (winX >= 0 && winX <= w && winY >= 0 && winY <= h);
+    var cosAng = Math.max(-1, Math.min(1, -uz));
+    var angDistDeg = Math.acos(cosAng) * 180 / Math.PI;
+
+    return {
+      x: winX,
+      y: winY,
+      onScreen: onScreen,
+      inFront: uz < 0,
+      dirX: vx,
+      dirY: -vy,
+      angDistDeg: angDistDeg,
+      width: w,
+      height: h
+    };
+  }
+
+  function projectObserved(azRad, altRad) {
+    if (!ready || !stel) return null;
+    try {
+      var obs = stel.core.observer;
+      var vObs = stel.s2c(azRad, altRad);
+      var vView = stel.convertFrame(obs, 'OBSERVED', 'VIEW', vObs);
+      return projectViewVector(vView);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function projectHourAngle(hRad, decRad) {
+    if (!ready || !stel) return null;
+    try {
+      var obs = stel.core.observer;
+      var phi = (obs.latitude !== undefined) ? obs.latitude : (obs.phi || 0);
+      var cd = Math.cos(decRad);
+      var sd = Math.sin(decRad);
+      var ch = Math.cos(hRad);
+      var sh = Math.sin(hRad);
+      var cp = Math.cos(phi);
+      var sp = Math.sin(phi);
+
+      var xp = cd * ch;
+      var yp = -cd * sh;
+      var zp = sd;
+
+      var vx = xp * sp + zp * cp;
+      var vy = yp;
+      var vz = -xp * cp + zp * sp;
+
+      var vObs = [vx, vy, vz];
+      var vView = stel.convertFrame(obs, 'OBSERVED', 'VIEW', vObs);
+      return projectViewVector(vView);
+    } catch (e) {
+      return null;
+    }
+  }
+
   function projectCoordinates(raHours, decDeg) {
     if (!ready || !stel) return null;
     try {
@@ -591,68 +721,261 @@
       var decRad = decDeg * Math.PI / 180;
       var icrs = stel.s2c(raRad, decRad);
       var v = stel.convertFrame(obs, 'ICRF', 'VIEW', icrs);
-      if (!v) return null;
-
-      var vx = v[0];
-      var vy = v[1];
-      var vz = v[2];
-
-      var d = Math.sqrt(vx * vx + vy * vy + vz * vz);
-      if (d < 1e-9) return null;
-      var ux = vx / d;
-      var uy = vy / d;
-      var uz = vz / d;
-
-      // Discontinuity at (0, 0, 1) directly behind
-      if (uz >= 0.999999) return null;
-
-      var stelCanvas = document.getElementById('stel-canvas');
-      if (!stelCanvas) return null;
-      var w = stelCanvas.clientWidth;
-      var h = stelCanvas.clientHeight;
-      if (w <= 0 || h <= 0) return null;
-
-      var aspect = w / h;
-      var fov = stel.core.fov;
-      var fovy;
-      if (aspect < 1) {
-        fovy = 4 * Math.atan(Math.tan(fov / 4) / aspect);
-      } else {
-        fovy = fov;
-      }
-
-      var fovy2 = 2 * Math.atan(2 * Math.tan(fovy / 4));
-      var f = 1.0 / Math.tan(fovy2 / 2);
-
-      var hStereo = 0.5 * (1.0 - uz);
-      var px = ux / hStereo;
-      var py = uy / hStereo;
-
-      var p0 = (f / aspect) * px;
-      var p1 = f * py;
-
-      var winX = (+p0 + 1) / 2 * w;
-      var winY = (-p1 + 1) / 2 * h;
-
-      var cosAng = Math.max(-1, Math.min(1, -uz));
-      var angDistDeg = Math.acos(cosAng) * 180 / Math.PI;
-
-      var onScreen = (uz < 0) && (winX >= 0 && winX <= w && winY >= 0 && winY <= h);
-
-      return {
-        x: winX,
-        y: winY,
-        onScreen: onScreen,
-        inFront: uz < 0,
-        dirX: vx,
-        dirY: -vy,
-        angDistDeg: angDistDeg,
-        width: w,
-        height: h
-      };
+      return projectViewVector(v);
     } catch (e) {
       return null;
     }
+  }
+
+  function drawPolyline(ctx, points, style) {
+    if (!points || points.length < 2) return [];
+    var segments = [];
+    ctx.save();
+    ctx.strokeStyle = style.color;
+    ctx.lineWidth = style.lineWidth || 1.5;
+    ctx.setLineDash(style.dash || [6, 6]);
+
+    var drawing = false;
+    ctx.beginPath();
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i];
+      if (p && p.inFront) {
+        if (!drawing) {
+          ctx.moveTo(p.x, p.y);
+          drawing = true;
+        } else {
+          ctx.lineTo(p.x, p.y);
+          segments.push({ x1: points[i - 1].x, y1: points[i - 1].y, x2: p.x, y2: p.y });
+        }
+      } else {
+        drawing = false;
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+    return segments;
+  }
+
+  function drawLineLabel(ctx, points, labelText, style, offsetY) {
+    if (!points || !labelText) return;
+    var bestPoint = null;
+    var bestDist = 1e9;
+    var stelCanvas = document.getElementById('stel-canvas');
+    var cx = (stelCanvas ? stelCanvas.clientWidth : 400) / 2;
+    var cy = (stelCanvas ? stelCanvas.clientHeight : 400) / 2 + (offsetY || 0);
+
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i];
+      if (p && p.onScreen) {
+        var d = Math.hypot(p.x - cx, p.y - cy);
+        if (d < bestDist) {
+          bestDist = d;
+          bestPoint = p;
+        }
+      }
+    }
+
+    if (!bestPoint) return;
+
+    ctx.save();
+    ctx.font = '600 10px monospace';
+    var textMetrics = ctx.measureText(labelText);
+    var padX = 6;
+    var padY = 3;
+    var bgW = textMetrics.width + padX * 2;
+    var bgH = 16;
+    var bgX = bestPoint.x - bgW / 2;
+    var bgY = bestPoint.y - bgH / 2;
+
+    for (var r = 0; r < _drawnLabelRects.length; r++) {
+      var prev = _drawnLabelRects[r];
+      if (Math.abs(bgX + bgW / 2 - (prev.x + prev.w / 2)) < (bgW + prev.w) / 2 &&
+          Math.abs(bgY + bgH / 2 - (prev.y + prev.h / 2)) < (bgH + prev.h) / 2 + 4) {
+        bgY = prev.y + prev.h + 4;
+      }
+    }
+    _drawnLabelRects.push({ x: bgX, y: bgY, w: bgW, h: bgH });
+
+    ctx.fillStyle = style.badgeBg || 'rgba(15, 23, 42, 0.85)';
+    drawRoundedRect(ctx, bgX, bgY, bgW, bgH, 4);
+    ctx.fill();
+
+    ctx.strokeStyle = style.color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    drawRoundedRect(ctx, bgX, bgY, bgW, bgH, 4);
+    ctx.stroke();
+
+    ctx.fillStyle = style.textColor || style.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labelText, bgX + bgW / 2, bgY + bgH / 2);
+    ctx.restore();
+    return { x: bgX, y: bgY, w: bgW, h: bgH };
+  }
+
+  var _drawnLabelRects = [];
+
+  function renderMountLimits(ctx, w, h, isNight) {
+    _drawnLabelRects = [];
+    if (!_showMountLimitsConfig || !_mountLimits || !_mountLimits.enabled || !ready || !stel) {
+      _renderedLimitLines = [];
+      return;
+    }
+
+    var newRendered = [];
+    var labels = _mountLimits.labels || {};
+
+    // 1. Overhead limit (altitude circle near zenith)
+    if (_mountLimits.maxAltDeg < 90 && _mountLimits.maxAltDeg >= 40) {
+      var maxAltRad = _mountLimits.maxAltDeg * Math.PI / 180;
+      var overheadPts = [];
+      for (var az = 0; az <= 360; az += 5) {
+        var p = projectObserved(az * Math.PI / 180, maxAltRad);
+        overheadPts.push(p);
+      }
+      var overheadStyle = {
+        color: isNight ? 'rgba(255, 120, 80, 0.9)' : 'rgba(255, 175, 0, 0.9)',
+        lineWidth: 1.8,
+        dash: [6, 6]
+      };
+      var segs = drawPolyline(ctx, overheadPts, overheadStyle);
+      var ohLabel = labels.overhead || ('Overhead ' + Math.round(_mountLimits.maxAltDeg) + '°');
+      var bOh = drawLineLabel(ctx, overheadPts, ohLabel, overheadStyle);
+      newRendered.push({
+        kind: 'overhead',
+        label: ohLabel,
+        value: Math.round(_mountLimits.maxAltDeg) + '°',
+        segments: segs,
+        badgeRect: bOh
+      });
+    }
+
+    // 2. Horizon limit (minimum altitude circle)
+    if (_mountLimits.minAltDeg > -30 && _mountLimits.minAltDeg < 80) {
+      var minAltRad = _mountLimits.minAltDeg * Math.PI / 180;
+      var horizonPts = [];
+      for (var az = 0; az <= 360; az += 5) {
+        var p = projectObserved(az * Math.PI / 180, minAltRad);
+        horizonPts.push(p);
+      }
+      var horizonStyle = {
+        color: isNight ? 'rgba(255, 100, 70, 0.75)' : 'rgba(255, 150, 50, 0.75)',
+        lineWidth: 1.4,
+        dash: [5, 5]
+      };
+      var segs = drawPolyline(ctx, horizonPts, horizonStyle);
+      var hzLabel = labels.horizon || ('Horizon ' + Math.round(_mountLimits.minAltDeg) + '°');
+      var bHz = drawLineLabel(ctx, horizonPts, hzLabel, horizonStyle);
+      newRendered.push({
+        kind: 'horizon',
+        label: hzLabel,
+        value: Math.round(_mountLimits.minAltDeg) + '°',
+        segments: segs,
+        badgeRect: bHz
+      });
+    }
+
+    // 3. Meridian Limits (East & West) - GEM mounts only
+    if (_mountLimits.isGem) {
+      var isEastActive = _mountLimits.activePierSide === 'East';
+      var isWestActive = _mountLimits.activePierSide === 'West';
+
+      // East limit
+      var merERad = -(_mountLimits.meridianEastMinutes / 4.0) * Math.PI / 180;
+      var merEPts = [];
+      for (var dec = -85; dec <= 85; dec += 2.5) {
+        var p = projectHourAngle(merERad, dec * Math.PI / 180);
+        merEPts.push(p);
+      }
+      var merEStyle = {
+        color: isNight
+          ? (isEastActive ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
+          : (isEastActive ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
+        lineWidth: isEastActive ? 2.2 : 1.2,
+        dash: [6, 4]
+      };
+      var segsE = drawPolyline(ctx, merEPts, merEStyle);
+      var labelE = labels.meridianEast || ('Meridian limit E ' + (_mountLimits.meridianEastMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianEastMinutes) + 'm');
+      var bothZero = Math.round(_mountLimits.meridianEastMinutes) === 0 && Math.round(_mountLimits.meridianWestMinutes) === 0;
+
+      var bE = null;
+      if (!bothZero) {
+        bE = drawLineLabel(ctx, merEPts, labelE, merEStyle, -45);
+      }
+      newRendered.push({
+        kind: 'meridianEast',
+        label: labelE,
+        value: (_mountLimits.meridianEastMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianEastMinutes) + 'm',
+        segments: segsE,
+        badgeRect: bE
+      });
+
+      // West limit
+      var merWRad = +(_mountLimits.meridianWestMinutes / 4.0) * Math.PI / 180;
+      var merWPts = [];
+      for (var dec = -85; dec <= 85; dec += 2.5) {
+        var p = projectHourAngle(merWRad, dec * Math.PI / 180);
+        merWPts.push(p);
+      }
+      var merWStyle = {
+        color: isNight
+          ? (isWestActive ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
+          : (isWestActive ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
+        lineWidth: isWestActive ? 2.2 : 1.2,
+        dash: [6, 4]
+      };
+      var segsW = drawPolyline(ctx, merWPts, merWStyle);
+      var labelW = labels.meridianWest || (bothZero
+        ? 'Meridian limit (0m)'
+        : ('Meridian limit W ' + (_mountLimits.meridianWestMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianWestMinutes) + 'm'));
+      var bW = drawLineLabel(ctx, merWPts, labelW, merWStyle, bothZero ? 0 : 45);
+      newRendered.push({
+        kind: 'meridianWest',
+        label: labelW,
+        value: (_mountLimits.meridianWestMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianWestMinutes) + 'm',
+        segments: segsW,
+        badgeRect: bW
+      });
+    }
+
+    _renderedLimitLines = newRendered;
+  }
+
+  function distToSegment(px, py, x1, y1, x2, y2) {
+    var l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+    if (l2 === 0) return Math.hypot(px - x1, py - y1);
+    var t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+  }
+
+  function checkLimitLineHit(x, y) {
+    if (!_renderedLimitLines || _renderedLimitLines.length === 0) return null;
+    var threshold = 35;
+    var bestHit = null;
+    var minD = threshold;
+
+    for (var i = 0; i < _renderedLimitLines.length; i++) {
+      var line = _renderedLimitLines[i];
+      if (line.badgeRect) {
+        var b = line.badgeRect;
+        var pad = 12;
+        if (x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad) {
+          return line;
+        }
+      }
+      var segs = line.segments;
+      for (var j = 0; j < segs.length; j++) {
+        var s = segs[j];
+        var d = distToSegment(x, y, s.x1, s.y1, s.x2, s.y2);
+        if (d < minD) {
+          minD = d;
+          bestHit = line;
+        }
+      }
+    }
+    return bestHit;
   }
 
   function unprojectCoordinates(winX, winY) {
@@ -1076,6 +1399,14 @@
       }
     }
 
+    var isNight = false;
+    var root = document.getElementById('stel-root');
+    if (root && root.classList.contains('night-mode')) {
+      isNight = true;
+    }
+
+    renderMountLimits(reticleCtx, w, h, isNight);
+
     if (!_telescope || !ready || !stel) {
       reticleCtx.restore();
       return;
@@ -1309,6 +1640,26 @@
         clearTimeout(holdTimer);
         holdTimer = null;
       }
+      if (holdStartPos && !holdTriggered) {
+        var dx = e.clientX - holdStartPos.clientX;
+        var dy = e.clientY - holdStartPos.clientY;
+        if (Math.hypot(dx, dy) < 25) {
+          var hit = checkLimitLineHit(holdStartPos.x, holdStartPos.y);
+          if (hit) {
+            lastLimitTapTime = performance.now();
+            post('limit_line_tap', {
+              kind: hit.kind,
+              label: hit.label,
+              value: hit.value,
+              screenX: holdStartPos.clientX !== undefined ? holdStartPos.clientX : holdStartPos.x,
+              screenY: holdStartPos.clientY !== undefined ? holdStartPos.clientY : holdStartPos.y,
+              x: holdStartPos.x,
+              y: holdStartPos.y
+            });
+            releaseEngineInput(true);
+          }
+        }
+      }
     }
 
     canvas.addEventListener('pointerdown', onDown, { passive: true });
@@ -1354,6 +1705,8 @@
     setTelescope: setTelescope,
 
     centerOnTelescope: centerOnTelescope,
+
+    setMountLimits: setMountLimits,
 
     releaseInput: releaseEngineInput,
 

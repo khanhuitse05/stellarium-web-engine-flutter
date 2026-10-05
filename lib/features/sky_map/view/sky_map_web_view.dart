@@ -153,6 +153,10 @@ class _SkyMapWebViewState extends State<SkyMapWebView> {
           if (payload is Map) {
             widget.cubit.onSkyPointLongPress(Map<String, dynamic>.from(payload));
           }
+        case 'limit_line_tap':
+          if (payload is Map) {
+            widget.cubit.onLimitLineTap(Map<String, dynamic>.from(payload));
+          }
         case 'user_pan':
           widget.cubit.onUserPan();
         case 'error':

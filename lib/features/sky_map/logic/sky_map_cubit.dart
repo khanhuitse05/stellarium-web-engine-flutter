@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:mlastro_skymap/astro/coordinate_format.dart';
 import 'package:mlastro_skymap/features/sky_map/logic/sky_map_state.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
+import 'package:mlastro_skymap/features/sky_map/model/sky_map_mount_limits.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object_kind.dart';
@@ -48,8 +49,10 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   bool _isPushingOrientation = false;
   SkyOrientation? _pendingOrientation;
   final _longPressController = StreamController<SkyPointLongPressEvent>.broadcast();
+  final _limitTapController = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<SkyPointLongPressEvent> get longPressStream => _longPressController.stream;
+  Stream<Map<String, dynamic>> get limitTapStream => _limitTapController.stream;
 
   void attachWebController(WebViewController controller) {
     _web = controller;
@@ -91,6 +94,9 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _pushConfigToMap(state.config);
     if (state.telescope != null) {
       await _pushTelescopeToMap(state.telescope);
+    }
+    if (state.mountLimits != null) {
+      await _pushMountLimitsToMap(state.mountLimits);
     }
     await Future<void>.delayed(const Duration(milliseconds: 500));
     if (isClosed) return;
@@ -472,6 +478,36 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     } catch (_) {}
   }
 
+  Future<void> setMountLimits(SkyMapMountLimits? limits) async {
+    emit(state.copyWith(
+      mountLimits: limits,
+      clearMountLimits: limits == null,
+    ));
+    await _pushMountLimitsToMap(limits);
+  }
+
+  void onLimitLineTap(Map<String, dynamic> payload) {
+    if (!_limitTapController.isClosed) {
+      _limitTapController.add(payload);
+    }
+  }
+
+  Future<void> _pushMountLimitsToMap(SkyMapMountLimits? limits) async {
+    final web = _web;
+    if (web == null || !_bridgeReady) return;
+    try {
+      if (limits == null) {
+        await web.runJavaScript(
+          'window.MlastroSky && window.MlastroSky.setMountLimits && window.MlastroSky.setMountLimits(null);',
+        );
+      } else {
+        await web.runJavaScript(
+          'window.MlastroSky && window.MlastroSky.setMountLimits && window.MlastroSky.setMountLimits(${jsonEncode(limits.toJson())});',
+        );
+      }
+    } catch (_) {}
+  }
+
   Future<void> centerOnTelescope() async {
     final t = state.telescope;
     if (t == null) return;
@@ -619,6 +655,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _orientationSub?.cancel();
     await _telescopeSub?.cancel();
     await _longPressController.close();
+    await _limitTapController.close();
     return super.close();
   }
 }

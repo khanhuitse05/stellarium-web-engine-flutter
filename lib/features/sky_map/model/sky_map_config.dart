@@ -10,6 +10,7 @@ class SkyMapConfig extends Equatable {
     this.showAzimuthalGrid = false,
     this.showEquatorialGrid = false,
     this.showMeridianLine = false,
+    this.showMountLimits = false,
     this.showAtmosphere = true,
     this.showLandscape = true,
     this.showMilkyWay = true,
@@ -28,6 +29,7 @@ class SkyMapConfig extends Equatable {
         showAzimuthalGrid: false,
         showEquatorialGrid: false,
         showMeridianLine: false,
+        showMountLimits: false,
         showAtmosphere: true,
         showLandscape: true,
         showMilkyWay: true,
@@ -46,6 +48,7 @@ class SkyMapConfig extends Equatable {
         showAzimuthalGrid: false,
         showEquatorialGrid: true,
         showMeridianLine: true,
+        showMountLimits: true,
         showAtmosphere: false,
         showLandscape: false,
         showMilkyWay: true,
@@ -64,6 +67,7 @@ class SkyMapConfig extends Equatable {
         showAzimuthalGrid: true,
         showEquatorialGrid: false,
         showMeridianLine: true,
+        showMountLimits: true,
         showAtmosphere: true,
         showLandscape: true,
         showMilkyWay: true,
@@ -82,6 +86,7 @@ class SkyMapConfig extends Equatable {
         showAzimuthalGrid: false,
         showEquatorialGrid: false,
         showMeridianLine: false,
+        showMountLimits: false,
         showAtmosphere: false,
         showLandscape: false,
         showMilkyWay: false,
@@ -98,6 +103,7 @@ class SkyMapConfig extends Equatable {
   final bool showAzimuthalGrid;
   final bool showEquatorialGrid;
   final bool showMeridianLine;
+  final bool showMountLimits;
   final bool showAtmosphere;
   final bool showLandscape;
   final bool showMilkyWay;
@@ -114,6 +120,7 @@ class SkyMapConfig extends Equatable {
     bool? showAzimuthalGrid,
     bool? showEquatorialGrid,
     bool? showMeridianLine,
+    bool? showMountLimits,
     bool? showAtmosphere,
     bool? showLandscape,
     bool? showMilkyWay,
@@ -133,6 +140,7 @@ class SkyMapConfig extends Equatable {
       showAzimuthalGrid: showAzimuthalGrid ?? this.showAzimuthalGrid,
       showEquatorialGrid: showEquatorialGrid ?? this.showEquatorialGrid,
       showMeridianLine: showMeridianLine ?? this.showMeridianLine,
+      showMountLimits: showMountLimits ?? this.showMountLimits,
       showAtmosphere: showAtmosphere ?? this.showAtmosphere,
       showLandscape: showLandscape ?? this.showLandscape,
       showMilkyWay: showMilkyWay ?? this.showMilkyWay,
@@ -151,6 +159,7 @@ class SkyMapConfig extends Equatable {
         'showAzimuthalGrid': showAzimuthalGrid,
         'showEquatorialGrid': showEquatorialGrid,
         'showMeridianLine': showMeridianLine,
+        'showMountLimits': showMountLimits,
         'showAtmosphere': showAtmosphere,
         'showLandscape': showLandscape,
         'showMilkyWay': showMilkyWay,
@@ -170,6 +179,7 @@ class SkyMapConfig extends Equatable {
       showAzimuthalGrid: json['showAzimuthalGrid'] as bool? ?? false,
       showEquatorialGrid: json['showEquatorialGrid'] as bool? ?? false,
       showMeridianLine: json['showMeridianLine'] as bool? ?? false,
+      showMountLimits: json['showMountLimits'] as bool? ?? false,
       showAtmosphere: json['showAtmosphere'] as bool? ?? true,
       showLandscape: json['showLandscape'] as bool? ?? true,
       showMilkyWay: json['showMilkyWay'] as bool? ?? true,
@@ -189,6 +199,7 @@ class SkyMapConfig extends Equatable {
         showAzimuthalGrid,
         showEquatorialGrid,
         showMeridianLine,
+        showMountLimits,
         showAtmosphere,
         showLandscape,
         showMilkyWay,

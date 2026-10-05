@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_config.dart';
+import 'package:mlastro_skymap/features/sky_map/model/sky_map_mount_limits.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_map_telescope_position.dart';
 import 'package:mlastro_skymap/features/sky_map/model/sky_object.dart';
 
@@ -14,6 +15,7 @@ final class SkyMapState extends Equatable {
     this.fovDeg = 75.0,
     this.selected,
     this.telescope,
+    this.mountLimits,
     this.locationReady = false,
     this.mapReady = false,
     this.sensorTrackingActive = false,
@@ -50,6 +52,7 @@ final class SkyMapState extends Equatable {
   final double fovDeg;
   final SkyObject? selected;
   final SkyMapTelescopePosition? telescope;
+  final SkyMapMountLimits? mountLimits;
   final bool locationReady;
   final bool mapReady;
   final bool sensorTrackingActive;
@@ -68,6 +71,8 @@ final class SkyMapState extends Equatable {
     bool clearSelected = false,
     SkyMapTelescopePosition? telescope,
     bool clearTelescope = false,
+    SkyMapMountLimits? mountLimits,
+    bool clearMountLimits = false,
     bool? locationReady,
     bool? mapReady,
     bool? sensorTrackingActive,
@@ -85,6 +90,7 @@ final class SkyMapState extends Equatable {
       fovDeg: fovDeg ?? this.fovDeg,
       selected: clearSelected ? null : (selected ?? this.selected),
       telescope: clearTelescope ? null : (telescope ?? this.telescope),
+      mountLimits: clearMountLimits ? null : (mountLimits ?? this.mountLimits),
       locationReady: locationReady ?? this.locationReady,
       mapReady: mapReady ?? this.mapReady,
       sensorTrackingActive: sensorTrackingActive ?? this.sensorTrackingActive,
@@ -104,6 +110,7 @@ final class SkyMapState extends Equatable {
         fovDeg,
         selected,
         telescope,
+        mountLimits,
         locationReady,
         mapReady,
         sensorTrackingActive,
