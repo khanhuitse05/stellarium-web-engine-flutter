@@ -701,9 +701,9 @@
       var yp = -cd * sh;
       var zp = sd;
 
-      var vx = xp * sp + zp * cp;
+      var vx = -xp * sp + zp * cp;
       var vy = yp;
-      var vz = -xp * cp + zp * sp;
+      var vz = xp * cp + zp * sp;
 
       var vObs = [vx, vy, vz];
       var vView = stel.convertFrame(obs, 'OBSERVED', 'VIEW', vObs);
