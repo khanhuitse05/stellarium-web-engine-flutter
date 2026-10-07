@@ -1,5 +1,6 @@
 name: mlastro_skymap
 description: Flutter package — interactive sky map powered by Stellarium Web Engine (AGPL-3.0).
+repository: https://github.com/khanhuitse05/stellarium-web-engine-flutter
 publish_to: 'none'
 version: 1.0.0
 

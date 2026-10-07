@@ -4,47 +4,42 @@ import 'package:flutter/services.dart';
 import 'package:mlastro_skymap/sky_map_assets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+const String _kFlutterPackageGitHubUrl =
+    'https://github.com/khanhuitse05/stellarium-web-engine-flutter';
 const String _kUpstreamGitHubUrl =
     'https://github.com/Stellarium/stellarium-web-engine';
-const String _kUpstreamLicenseUrl =
-    'https://github.com/Stellarium/stellarium-web-engine/blob/master/COPYING';
-const String _kGnuAgplUrl =
-    'https://www.gnu.org/licenses/agpl-3.0.html';
-const String _kStellariumLabsUrl =
-    'https://stellarium-labs.com/';
+const String _kGnuAgplUrl = 'https://www.gnu.org/licenses/agpl-3.0.html';
+const String _kStellariumLabsUrl = 'https://stellarium-labs.com/';
 
 Future<void> _launchUrlString(BuildContext context, String urlString) async {
   final uri = Uri.tryParse(urlString);
   if (uri == null) return;
   try {
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open $urlString')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open $urlString')));
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open link: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to open link: $e')));
     }
   }
 }
 
 /// Open source licenses and third-party software acknowledgements.
 class OpenSourceLicensesPage extends StatelessWidget {
-  const OpenSourceLicensesPage({super.key});
+  const OpenSourceLicensesPage({super.key, this.applicationName = 'MLAstro'});
+
+  final String? applicationName;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Licenses & Attributions'),
-      ),
+      appBar: AppBar(title: const Text('Licenses & Attributions')),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: [
@@ -52,9 +47,13 @@ class OpenSourceLicensesPage extends StatelessWidget {
           const _HeroCard(),
           const SizedBox(height: 16),
 
-          // 2. Bundled NOTICE file & AGPL note
+          // 3. Bundled NOTICE file & AGPL note
           const _ClickableNoticeSection(),
           const SizedBox(height: 16),
+
+          // 4. Flutter & other third-party dependencies licenses
+          _AllLicensesCard(applicationName: applicationName),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -159,12 +158,19 @@ class _HeroCard extends StatelessWidget {
                     ),
                   ),
                   icon: const Icon(Icons.description_outlined, size: 16),
-                  label: const Text('View full AGPL v3 text'),
+                  label: const Text('AGPL v3 text'),
+                ),
+                FilledButton.icon(
+                  onPressed: () =>
+                      _launchUrlString(context, _kFlutterPackageGitHubUrl),
+                  icon: const Icon(Icons.code_rounded, size: 16),
+                  label: const Text('Source Code'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => _launchUrlString(context, _kUpstreamGitHubUrl),
-                  icon: const Icon(Icons.code_rounded, size: 16),
-                  label: const Text('GitHub Repository'),
+                  onPressed: () =>
+                      _launchUrlString(context, _kUpstreamGitHubUrl),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                  label: const Text('Upstream Engine'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _launchUrlString(context, _kGnuAgplUrl),
@@ -182,11 +188,7 @@ class _HeroCard extends StatelessWidget {
 
 /// Small informational tag / badge
 class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
+  const _Badge({required this.icon, required this.label, required this.color});
 
   final IconData icon;
   final String label;
@@ -199,10 +201,7 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withValues(alpha: 0.35),
-          width: 0.8,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -222,7 +221,6 @@ class _Badge extends StatelessWidget {
     );
   }
 }
-
 
 /// Notice section displaying the bundled NOTICE file with clickable URLs and copy action.
 class _ClickableNoticeSection extends StatelessWidget {
@@ -248,7 +246,9 @@ class _ClickableNoticeSection extends StatelessWidget {
         final noticeText = snap.data ?? '';
         return Card(
           elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.3,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
@@ -338,10 +338,7 @@ class _ClickableNoticeSection extends StatelessWidget {
 
 /// Renders text with automatic regex detection for clickable URLs.
 class _ClickableUrlText extends StatefulWidget {
-  const _ClickableUrlText({
-    required this.text,
-    this.style,
-  });
+  const _ClickableUrlText({required this.text, this.style});
 
   final String text;
   final TextStyle? style;
@@ -386,33 +383,85 @@ class _ClickableUrlTextState extends State<_ClickableUrlText> {
 
     for (final match in urlRegex.allMatches(widget.text)) {
       if (match.start > start) {
-        spans.add(TextSpan(
-          text: widget.text.substring(start, match.start),
-          style: defaultStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: widget.text.substring(start, match.start),
+            style: defaultStyle,
+          ),
+        );
       }
       final url = match.group(0)!;
       final recognizer = TapGestureRecognizer()
         ..onTap = () => _launchUrlString(context, url);
       _recognizers.add(recognizer);
 
-      spans.add(TextSpan(
-        text: url,
-        style: linkStyle,
-        recognizer: recognizer,
-      ));
+      spans.add(TextSpan(text: url, style: linkStyle, recognizer: recognizer));
       start = match.end;
     }
 
     if (start < widget.text.length) {
-      spans.add(TextSpan(
-        text: widget.text.substring(start),
-        style: defaultStyle,
-      ));
+      spans.add(
+        TextSpan(text: widget.text.substring(start), style: defaultStyle),
+      );
     }
 
-    return SelectableText.rich(
-      TextSpan(children: spans),
+    return SelectableText.rich(TextSpan(children: spans));
+  }
+}
+
+/// Card providing access to Flutter and other bundled third-party package licenses.
+class _AllLicensesCard extends StatelessWidget {
+  const _AllLicensesCard({this.applicationName});
+
+  final String? applicationName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+      child: ListTile(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            Icons.library_books_outlined,
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          'All Open Source Licenses',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          'View licenses for Flutter and other bundled packages',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => showLicensePage(
+          context: context,
+          applicationName: applicationName,
+        ),
+      ),
     );
   }
 }
@@ -427,42 +476,12 @@ class _AgplLicensePage extends StatelessWidget {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('GNU AGPL v3 License'),
+        title: const Text('GNU AGPL v3'),
         actions: [
-          IconButton(
-            tooltip: 'View COPYING on GitHub',
-            icon: const Icon(Icons.code_rounded),
-            onPressed: () => _launchUrlString(context, _kUpstreamLicenseUrl),
-          ),
           IconButton(
             tooltip: 'Open on GNU.org',
             icon: const Icon(Icons.open_in_new_rounded),
             onPressed: () => _launchUrlString(context, _kGnuAgplUrl),
-          ),
-          FutureBuilder<String>(
-            future: rootBundle.loadString(SkyMapAssets.agplLicense),
-            builder: (context, snap) {
-              final text = snap.data;
-              return IconButton(
-                tooltip: 'Copy license text',
-                icon: const Icon(Icons.copy_rounded),
-                onPressed: text == null
-                    ? null
-                    : () async {
-                        await Clipboard.setData(ClipboardData(text: text));
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'AGPL v3 license text copied to clipboard',
-                              ),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-              );
-            },
           ),
         ],
       ),
@@ -476,104 +495,15 @@ class _AgplLicensePage extends StatelessWidget {
             return Center(child: Text('Could not load license: ${snap.error}'));
           }
           final text = snap.data ?? '';
-          return ListView(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            children: [
-              Card(
-                elevation: 0,
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.4,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.gavel_rounded,
-                            size: 22,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'GNU AFFERO GENERAL PUBLIC LICENSE',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Version 3, 19 November 2007',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          ActionChip(
-                            avatar: const Icon(Icons.code_rounded, size: 14),
-                            label: const Text('View COPYING on GitHub'),
-                            onPressed: () => _launchUrlString(
-                              context,
-                              _kUpstreamLicenseUrl,
-                            ),
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.open_in_new_rounded, size: 14),
-                            label: const Text('GNU.org Details'),
-                            onPressed: () => _launchUrlString(
-                              context,
-                              _kGnuAgplUrl,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+            child: SelectableText(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                height: 1.45,
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.brightness == Brightness.dark
-                      ? Colors.black.withValues(alpha: 0.4)
-                      : theme.colorScheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                ),
-                child: SelectableText(
-                  text,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),

@@ -4,11 +4,13 @@ Licensed under GNU AGPL v3 — https://www.gnu.org/licenses/agpl-3.0.html
 
 Bundled for offline sky map rendering in MLASTRO.
 Upstream: https://github.com/Stellarium/stellarium-web-engine
+Flutter package & source: https://github.com/khanhuitse05/stellarium-web-engine-flutter
 
 Full license text: assets/sky_map/stellarium/LICENSE-AGPL-3.0.txt
 Project notices: THIRD_PARTY_NOTICES.md (repository root)
 
 Sky catalog data is included from apps/test-skydata (see upstream repo).
 
-Note: AGPL v3 may require source disclosure if you distribute this app.
+Note: Pursuant to GNU AGPL v3 source disclosure requirements, the corresponding
+source code for this Flutter package and engine modifications is available above.
 Consider a commercial licence from Stellarium Labs for closed-source apps.

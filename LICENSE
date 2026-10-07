@@ -4,4 +4,7 @@
  See assets/sky_map/stellarium/LICENSE-AGPL-3.0.txt for the full license text.
 
  This package bundles Stellarium Web Engine (AGPL-3.0) and related sky-map
- integration code. See THIRD_PARTY_NOTICES.md for attribution details.
+ integration code. The corresponding open-source repository is available at:
+ https://github.com/khanhuitse05/stellarium-web-engine-flutter
+
+ See THIRD_PARTY_NOTICES.md for attribution details.
