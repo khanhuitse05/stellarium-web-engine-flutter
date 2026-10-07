@@ -88,8 +88,8 @@
     var radecInfo = obj.getInfo('radec');
     if (!radecInfo) return null;
 
-    var cirs = stel.convertFrame(obs, 'ICRF', 'CIRS', radecInfo);
-    var radec = stel.c2s(cirs);
+    var jnow = stel.convertFrame(obs, 'ICRF', 'JNOW', radecInfo);
+    var radec = stel.c2s(jnow);
     var raRad = stel.anp(radec[0]);
     var decRad = stel.anpm(radec[1]);
     var vmag = obj.getInfo('vmag');
@@ -713,14 +713,14 @@
     }
   }
 
-  function projectCoordinates(raHours, decDeg) {
+  function projectCoordinates(raHours, decDeg, frame) {
     if (!ready || !stel) return null;
     try {
       var obs = stel.core.observer;
       var raRad = raHours * Math.PI / 12;
       var decRad = decDeg * Math.PI / 180;
-      var icrs = stel.s2c(raRad, decRad);
-      var v = stel.convertFrame(obs, 'ICRF', 'VIEW', icrs);
+      var coordVec = stel.s2c(raRad, decRad);
+      var v = stel.convertFrame(obs, frame || 'JNOW', 'VIEW', coordVec);
       return projectViewVector(v);
     } catch (e) {
       return null;
@@ -1021,10 +1021,12 @@
       var azDeg = stel.anp(altaz[0]) * 180 / Math.PI;
       var altDeg = altaz[1] * 180 / Math.PI;
 
-      // Equatorial ICRF J2000 coordinates (RA/Dec)
+      // Equatorial JNOW apparent coordinates of date (RA/Dec)
       var vIcrf = stel.convertFrame(obs, 'VIEW', 'ICRF', vView);
       if (!vIcrf) return null;
-      var radec = stel.c2s(vIcrf);
+      var vJnow = stel.convertFrame(obs, 'ICRF', 'JNOW', vIcrf);
+      if (!vJnow) return null;
+      var radec = stel.c2s(vJnow);
       var raHours = stel.anp(radec[0]) * 12 / Math.PI;
       var decDeg = stel.anpm(radec[1]) * 180 / Math.PI;
 
@@ -1747,14 +1749,14 @@
       }
     },
 
-    centerOn: function (raHours, decDeg) {
+    centerOn: function (raHours, decDeg, frame) {
       if (!ready || !stel) return;
       try {
         var obs = stel.core.observer;
         var ra = raHours * Math.PI / 12;
         var dec = decDeg * Math.PI / 180;
-        var icrs = stel.s2c(ra, dec);
-        var observed = stel.convertFrame(obs, 'ICRF', 'OBSERVED', icrs);
+        var coordVec = stel.s2c(ra, dec);
+        var observed = stel.convertFrame(obs, frame || 'JNOW', 'OBSERVED', coordVec);
         stel.lookAt(observed, 0.5);
       } catch (e) {
         showError('centerOn: ' + e);
