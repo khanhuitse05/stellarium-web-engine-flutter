@@ -9,19 +9,34 @@ import 'package:mlastro_skymap/features/sky_map/data/sky_map_asset_loader.dart';
 import 'package:mlastro_skymap/features/sky_map/data/sky_map_local_server.dart';
 import 'package:mlastro_skymap/features/sky_map/logic/sky_map_cubit.dart';
 import 'package:mlastro_skymap/utils/logger.dart';
+import 'package:mlastro_skymap/features/sky_map/view/sky_map_windows_web_view.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
-class SkyMapWebView extends StatefulWidget {
+class SkyMapWebView extends StatelessWidget {
   const SkyMapWebView({required this.cubit, super.key});
 
   final SkyMapCubit cubit;
 
   @override
-  State<SkyMapWebView> createState() => _SkyMapWebViewState();
+  Widget build(BuildContext context) {
+    if (Platform.isWindows) {
+      return SkyMapWindowsWebView(cubit: cubit);
+    }
+    return _SkyMapFlutterWebView(cubit: cubit);
+  }
 }
 
-class _SkyMapWebViewState extends State<SkyMapWebView> {
+class _SkyMapFlutterWebView extends StatefulWidget {
+  const _SkyMapFlutterWebView({required this.cubit});
+
+  final SkyMapCubit cubit;
+
+  @override
+  State<_SkyMapFlutterWebView> createState() => _SkyMapFlutterWebViewState();
+}
+
+class _SkyMapFlutterWebViewState extends State<_SkyMapFlutterWebView> {
   WebViewController? _controller;
   final _server = SkyMapLocalServer();
   var _progress = 0;
@@ -115,7 +130,7 @@ class _SkyMapWebViewState extends State<SkyMapWebView> {
         unawaited(webKit.setAllowsBackForwardNavigationGestures(false));
       }
 
-      widget.cubit.attachWebController(controller);
+      widget.cubit.attachWebViewController(controller);
       _startReadyWatchdog(controller);
       await controller.loadRequest(Uri.parse('${baseUrl}index.html'));
 
@@ -159,6 +174,10 @@ class _SkyMapWebViewState extends State<SkyMapWebView> {
           }
         case 'user_pan':
           widget.cubit.onUserPan();
+        case 'key_down':
+          if (payload is Map) {
+            widget.cubit.onKeyDown(Map<String, dynamic>.from(payload));
+          }
         case 'error':
           if (payload != null) {
             final msg = payload.toString();

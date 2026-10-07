@@ -36,6 +36,10 @@ typedef SkyMapHudBuilder = Widget Function(
 typedef SkyMapOverlayBuilder = List<Widget> Function(
   BuildContext context,
 );
+typedef SkyMapKeyAction = void Function(
+  BuildContext context,
+  SkyMapKeyEvent event,
+);
 
 /// Full-screen interactive sky map powered by Stellarium Web Engine.
 class SkyMapPage extends StatelessWidget {
@@ -54,6 +58,7 @@ class SkyMapPage extends StatelessWidget {
     this.onMoreDetails,
     this.expandedDetailsBuilder,
     this.onSkyPointLongPress,
+    this.onKeyEvent,
     this.toolbarBuilder,
     this.hudBuilder,
     this.overlayBuilder,
@@ -82,6 +87,7 @@ class SkyMapPage extends StatelessWidget {
   final SkyMapObjectAction? onMoreDetails;
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapLongPressAction? onSkyPointLongPress;
+  final SkyMapKeyAction? onKeyEvent;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -116,6 +122,7 @@ class SkyMapPage extends StatelessWidget {
         onMoreDetails: onMoreDetails,
         expandedDetailsBuilder: expandedDetailsBuilder,
         onSkyPointLongPress: onSkyPointLongPress,
+        onKeyEvent: onKeyEvent,
         toolbarBuilder: toolbarBuilder,
         hudBuilder: hudBuilder,
         overlayBuilder: overlayBuilder,
@@ -145,6 +152,7 @@ class _SkyMapView extends StatefulWidget {
     required this.onMoreDetails,
     this.expandedDetailsBuilder,
     this.onSkyPointLongPress,
+    this.onKeyEvent,
     required this.toolbarBuilder,
     required this.hudBuilder,
     required this.overlayBuilder,
@@ -169,6 +177,7 @@ class _SkyMapView extends StatefulWidget {
   final SkyMapObjectAction? onMoreDetails;
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapLongPressAction? onSkyPointLongPress;
+  final SkyMapKeyAction? onKeyEvent;
   final SkyMapToolbarBuilder? toolbarBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -190,6 +199,7 @@ class _SkyMapView extends StatefulWidget {
 class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
   SkyMapCubit get _cubit => context.read<SkyMapCubit>();
   StreamSubscription<SkyPointLongPressEvent>? _longPressSub;
+  StreamSubscription<SkyMapKeyEvent>? _keySub;
 
   @override
   void initState() {
@@ -197,6 +207,18 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
     _longPressSub = _cubit.longPressStream.listen((event) {
       if (!mounted) return;
       widget.onSkyPointLongPress?.call(context, event);
+    });
+    _keySub = _cubit.keyboardEventStream.listen((event) {
+      if (!mounted) return;
+      if (widget.onKeyEvent != null) {
+        widget.onKeyEvent!(context, event);
+      } else {
+        if (event.isSpace && widget.isSlewing) {
+          widget.onStop?.call();
+        } else if (event.isEscape) {
+          _cubit.deselectObject();
+        }
+      }
     });
   }
 
@@ -213,6 +235,7 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
   @override
   void dispose() {
     _longPressSub?.cancel();
+    _keySub?.cancel();
     widget.routeObserver?.unsubscribe(this);
     super.dispose();
   }

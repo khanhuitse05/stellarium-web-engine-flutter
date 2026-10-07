@@ -14,7 +14,10 @@ import 'package:mlastro_skymap/features/sky_map/model/sky_point_long_press_event
 import 'package:mlastro_skymap/services/location_service.dart';
 import 'package:mlastro_skymap/services/sky_map_orientation_service.dart';
 import 'package:mlastro_skymap/utils/logger.dart';
+import 'package:mlastro_skymap/features/sky_map/logic/sky_map_web_bridge.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+export 'package:mlastro_skymap/features/sky_map/logic/sky_map_web_bridge.dart';
 
 class SkyMapCubit extends Cubit<SkyMapState> {
   SkyMapCubit({
@@ -41,7 +44,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   final SkyMapOrientationService _orientationService;
   final Stream<SkyMapTelescopePosition?>? _telescopePositionStream;
 
-  WebViewController? _web;
+  SkyMapWebBridgeController? _web;
   bool _bridgeReady = false;
   Timer? _utcTimer;
   StreamSubscription<SkyMapTelescopePosition?>? _telescopeSub;
@@ -50,12 +53,18 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   SkyOrientation? _pendingOrientation;
   final _longPressController = StreamController<SkyPointLongPressEvent>.broadcast();
   final _limitTapController = StreamController<Map<String, dynamic>>.broadcast();
+  final _keyboardEventController = StreamController<SkyMapKeyEvent>.broadcast();
 
   Stream<SkyPointLongPressEvent> get longPressStream => _longPressController.stream;
   Stream<Map<String, dynamic>> get limitTapStream => _limitTapController.stream;
+  Stream<SkyMapKeyEvent> get keyboardEventStream => _keyboardEventController.stream;
 
-  void attachWebController(WebViewController controller) {
+  void attachWebController(SkyMapWebBridgeController controller) {
     _web = controller;
+  }
+
+  void attachWebViewController(WebViewController controller) {
+    _web = FlutterWebViewControllerAdapter(controller);
   }
 
   Future<void> start() async {
@@ -565,6 +574,32 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _runMapJs('window.MlastroSky.resumeInteraction();');
   }
 
+  void onKeyDown(Map<String, dynamic> payload) {
+    if (!_keyboardEventController.isClosed) {
+      _keyboardEventController.add(SkyMapKeyEvent.fromJson(payload));
+    }
+  }
+
+  Future<String?> getView() async {
+    final web = _web;
+    if (web == null || !state.mapReady) return null;
+    try {
+      final raw = await web.runJavaScriptReturningResult('window.MlastroSky.getView();');
+      if (raw == null) return null;
+      return raw is String ? raw : raw.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setView(String viewJson) async {
+    final web = _web;
+    if (web == null || !state.mapReady) return;
+    try {
+      await web.runJavaScript('window.MlastroSky.setView(${jsonEncode(viewJson)});');
+    } catch (_) {}
+  }
+
   Future<void> _runMapJs(String script) async {
     final web = _web;
     if (web == null || !_bridgeReady) return;
@@ -656,6 +691,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _telescopeSub?.cancel();
     await _longPressController.close();
     await _limitTapController.close();
+    await _keyboardEventController.close();
     return super.close();
   }
 }

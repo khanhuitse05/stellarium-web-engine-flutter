@@ -15,6 +15,10 @@
         window.MlastroBridge.postMessage(msg);
         return true;
       }
+      if (window.chrome && window.chrome.webview && window.chrome.webview.postMessage) {
+        window.chrome.webview.postMessage(msg);
+        return true;
+      }
       return false;
     }
     if (send()) return;
@@ -1664,10 +1668,82 @@
       }
     }
 
+    function onContextMenu(e) {
+      e.preventDefault();
+      if (!ready || !stel) return;
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      var rect = canvas.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var y = e.clientY - rect.top;
+      triggerLongPress(x, y);
+    }
+
+    canvas.addEventListener('contextmenu', onContextMenu);
     canvas.addEventListener('pointerdown', onDown, { passive: true });
     window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('pointerup', onUp, { passive: true });
     window.addEventListener('pointercancel', onUp, { passive: true });
+  }
+
+  function setupResizeObserver(canvas) {
+    var resizeTimer = null;
+    function applyResize() {
+      if (!canvas) return;
+      var rect = canvas.getBoundingClientRect();
+      var w = rect.width || window.innerWidth || 0;
+      var h = rect.height || window.innerHeight || 0;
+      if (w <= 0 || h <= 0) return;
+      var dpr = window.devicePixelRatio || 1;
+      var targetW = Math.floor(w * dpr);
+      var targetH = Math.floor(h * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+      if (reticleCanvas) {
+        reticleCanvas.width = targetW;
+        reticleCanvas.height = targetH;
+      }
+    }
+
+    function onResizeThrottled() {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(applyResize, 50);
+    }
+
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function () {
+        onResizeThrottled();
+      });
+      ro.observe(canvas.parentElement || canvas);
+    }
+    window.addEventListener('resize', onResizeThrottled);
+  }
+
+  function setupKeyboardBridge() {
+    window.addEventListener('keydown', function (e) {
+      var interceptedCodes = [
+        'Space',
+        'Escape',
+        'ArrowUp',
+        'ArrowDown',
+        'ArrowLeft',
+        'ArrowRight'
+      ];
+      if (interceptedCodes.indexOf(e.code) !== -1) {
+        e.preventDefault();
+        post('key_down', {
+          code: e.code,
+          key: e.key,
+          shiftKey: !!e.shiftKey,
+          ctrlKey: !!e.ctrlKey,
+          altKey: !!e.altKey
+        });
+      }
+    });
   }
 
   function boot() {
@@ -1691,6 +1767,8 @@
       log('canvas ' + size.width + 'x' + size.height + ' dpr=' + size.dpr);
       bootEngine(canvas, baseUrl, wasmUrl, skyDataUrl);
       setupLongPress(canvas);
+      setupResizeObserver(canvas);
+      setupKeyboardBridge();
       startReticleLoop();
     });
   }
@@ -1859,6 +1937,43 @@
         stel.pointAndLock(obj, 0.5);
       } catch (e) {
         showError('selectById: ' + e);
+      }
+    },
+
+    getView: function () {
+      if (!ready || !stel) return null;
+      try {
+        var stelCanvas = document.getElementById('stel-canvas');
+        if (!stelCanvas) return null;
+        var w = stelCanvas.clientWidth;
+        var h = stelCanvas.clientHeight;
+        var center = unprojectCoordinates(w / 2, h / 2);
+        if (!center) return null;
+        var fovDeg = (stel.core && stel.core.fov) ? stel.core.fov * 180 / Math.PI : 60;
+        return JSON.stringify({
+          azDeg: center.azDeg,
+          altDeg: center.altDeg,
+          raHours: center.raHours,
+          decDeg: center.decDeg,
+          fovDeg: fovDeg
+        });
+      } catch (e) {
+        return null;
+      }
+    },
+
+    setView: function (viewJson) {
+      if (!ready || !stel || !viewJson) return;
+      try {
+        var v = typeof viewJson === 'string' ? JSON.parse(viewJson) : viewJson;
+        if (v && v.fovDeg) {
+          window.MlastroSky.setFov(v.fovDeg);
+        }
+        if (v && v.azDeg !== undefined && v.altDeg !== undefined) {
+          window.MlastroSky.lookTowards(v.azDeg, v.altDeg);
+        }
+      } catch (e) {
+        log('setView failed: ' + e);
       }
     }
   };
