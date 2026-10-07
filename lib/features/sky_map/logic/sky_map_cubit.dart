@@ -54,10 +54,12 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   final _longPressController = StreamController<SkyPointLongPressEvent>.broadcast();
   final _limitTapController = StreamController<Map<String, dynamic>>.broadcast();
   final _keyboardEventController = StreamController<SkyMapKeyEvent>.broadcast();
+  final _userPanController = StreamController<void>.broadcast();
 
   Stream<SkyPointLongPressEvent> get longPressStream => _longPressController.stream;
   Stream<Map<String, dynamic>> get limitTapStream => _limitTapController.stream;
   Stream<SkyMapKeyEvent> get keyboardEventStream => _keyboardEventController.stream;
+  Stream<void> get userPanStream => _userPanController.stream;
 
   void attachWebController(SkyMapWebBridgeController controller) {
     _web = controller;
@@ -363,6 +365,9 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   }
 
   void onUserPan() {
+    if (!_userPanController.isClosed) {
+      _userPanController.add(null);
+    }
     if (state.sensorTrackingActive) {
       xLog.d('SkyMap: user touched/panned map — pausing sensor tracking');
       unawaited(stopSensorTracking(notifyUser: true));
@@ -692,6 +697,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _longPressController.close();
     await _limitTapController.close();
     await _keyboardEventController.close();
+    await _userPanController.close();
     return super.close();
   }
 }

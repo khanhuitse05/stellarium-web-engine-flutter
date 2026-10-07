@@ -66,6 +66,8 @@ class SkyMapPage extends StatelessWidget {
     this.showLicensesButton = true,
     this.showSearchButton = true,
     this.appBarActions = const [],
+    this.leftInset = 0.0,
+    this.rightInset = 0.0,
     this.panelBackgroundColor,
     this.panelBorderColor,
     this.panelAccentColor,
@@ -95,6 +97,8 @@ class SkyMapPage extends StatelessWidget {
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
+  final double leftInset;
+  final double rightInset;
   final Color? panelBackgroundColor;
   final Color? panelBorderColor;
   final Color? panelAccentColor;
@@ -130,6 +134,8 @@ class SkyMapPage extends StatelessWidget {
         showLicensesButton: showLicensesButton,
         showSearchButton: showSearchButton,
         appBarActions: appBarActions,
+        leftInset: leftInset,
+        rightInset: rightInset,
         panelBackgroundColor: panelBackgroundColor,
         panelBorderColor: panelBorderColor,
         panelAccentColor: panelAccentColor,
@@ -160,6 +166,8 @@ class _SkyMapView extends StatefulWidget {
     required this.showLicensesButton,
     required this.showSearchButton,
     required this.appBarActions,
+    this.leftInset = 0.0,
+    this.rightInset = 0.0,
     this.panelBackgroundColor,
     this.panelBorderColor,
     this.panelAccentColor,
@@ -185,6 +193,8 @@ class _SkyMapView extends StatefulWidget {
   final bool showLicensesButton;
   final bool showSearchButton;
   final List<Widget> appBarActions;
+  final double leftInset;
+  final double rightInset;
   final Color? panelBackgroundColor;
   final Color? panelBorderColor;
   final Color? panelAccentColor;
@@ -304,6 +314,8 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
               overlayBuilder: widget.overlayBuilder,
               showObjectPanel: widget.showObjectPanel,
               hasCustomToolbar: hasCustomToolbar,
+              leftInset: widget.leftInset,
+              rightInset: widget.rightInset,
               panelBackgroundColor: widget.panelBackgroundColor,
               panelBorderColor: widget.panelBorderColor,
               panelAccentColor: widget.panelAccentColor,
@@ -372,6 +384,8 @@ class _SkyMapOverlayLayer extends StatelessWidget {
     this.overlayBuilder,
     this.showObjectPanel = true,
     this.hasCustomToolbar = false,
+    this.leftInset = 0.0,
+    this.rightInset = 0.0,
     this.panelBackgroundColor,
     this.panelBorderColor,
     this.panelAccentColor,
@@ -388,6 +402,8 @@ class _SkyMapOverlayLayer extends StatelessWidget {
   final SkyMapOverlayBuilder? overlayBuilder;
   final bool showObjectPanel;
   final bool hasCustomToolbar;
+  final double leftInset;
+  final double rightInset;
   final Color? panelBackgroundColor;
   final Color? panelBorderColor;
   final Color? panelAccentColor;
@@ -409,7 +425,7 @@ class _SkyMapOverlayLayer extends StatelessWidget {
         return Stack(
           children: [
             Positioned(
-              left: 12,
+              left: 12 + leftInset,
               top: MediaQuery.paddingOf(context).top +
                   (hasCustomToolbar ? 64 : 8),
               child: hudBuilder != null
@@ -422,8 +438,8 @@ class _SkyMapOverlayLayer extends StatelessWidget {
             if (overlayBuilder != null) ...overlayBuilder!(context),
             if (state.statusLine != null)
               Positioned(
-                left: 12,
-                right: 12,
+                left: 12 + leftInset,
+                right: 12 + rightInset,
                 bottom: (selected != null ? 184 : 16) + bottomInset,
                 child: Material(
                   elevation: 6,
@@ -467,8 +483,8 @@ class _SkyMapOverlayLayer extends StatelessWidget {
             if (showObjectPanel && selected != null)
               Positioned(
                 key: ValueKey(selected.id),
-                left: 12,
-                right: 12,
+                left: 12 + leftInset,
+                right: 12 + rightInset,
                 bottom: 16 + bottomInset,
                 child: SkyObjectPanel(
                   object: selected,
