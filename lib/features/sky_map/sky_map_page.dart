@@ -330,10 +330,12 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
             BlocBuilder<SkyMapCubit, SkyMapState>(
               buildWhen: (prev, next) =>
                   prev.mapReady != next.mapReady ||
+                  prev.errorMessage != next.errorMessage ||
                   prev.config.nightMode != next.config.nightMode,
               builder: (context, state) {
                 return SkyMapLoadingOverlay(
                   isReady: state.mapReady,
+                  errorMessage: state.errorMessage,
                   isNightMode: state.config.nightMode,
                   accentColor: widget.loadingAccentColor,
                   secondaryColor: widget.loadingSecondaryColor,

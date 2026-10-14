@@ -45,7 +45,7 @@ class _SkyMapWindowsWebViewState extends State<SkyMapWindowsWebView> {
 
   void _startReadyWatchdog(WebviewController controller) {
     _readyWatchdog?.cancel();
-    _readyWatchdog = Timer(const Duration(seconds: 50), () async {
+    _readyWatchdog = Timer(const Duration(seconds: 40), () async {
       if (!mounted || widget.cubit.state.mapReady) return;
       try {
         final jsReady = await controller.executeScript(
@@ -53,7 +53,7 @@ class _SkyMapWindowsWebViewState extends State<SkyMapWindowsWebView> {
         );
         xLog.e('SkyMap Windows: watchdog — map still not ready (js=$jsReady)');
         widget.cubit.onMapError(
-          'Sky map timed out. Check console for SkyMap: logs.',
+          'Sky map loading timed out. Check %TEMP%\\mlastro_app.log for details.',
         );
       } catch (e, st) {
         xLog.e('SkyMap Windows: watchdog probe failed: $e\n$st');
@@ -63,7 +63,17 @@ class _SkyMapWindowsWebViewState extends State<SkyMapWindowsWebView> {
 
   Future<void> _initWebView() async {
     try {
-      xLog.d('SkyMap Windows: starting WebView2 init');
+      xLog.d('SkyMap Windows: checking WebView2 runtime');
+      final version = await WebviewController.getWebViewVersion();
+      if (version == null) {
+        throw StateError(
+          'Microsoft Edge WebView2 Runtime is not installed on this PC.\n'
+          'Please install WebView2 Runtime to view the Sky Map.',
+        );
+      }
+      xLog.d('SkyMap Windows: WebView2 version: $version');
+
+      xLog.d('SkyMap Windows: ensuring assets installed');
       final root = await SkyMapAssetLoader.ensureInstalled();
       final baseUrl = await _server.start(root);
       xLog.d('SkyMap Windows: local server at $baseUrl (root=$root)');
@@ -84,11 +94,13 @@ class _SkyMapWindowsWebViewState extends State<SkyMapWindowsWebView> {
       );
       _startReadyWatchdog(controller);
 
-      await controller.loadUrl('${baseUrl}index.html');
-
+      // Mount controller into the widget tree immediately so surface size is
+      // reported to WebView2 before the web page starts loading scripts.
       if (mounted) {
         setState(() => _controller = controller);
       }
+
+      await controller.loadUrl('${baseUrl}index.html');
     } catch (e, st) {
       xLog.e('SkyMap Windows: WebView2 init failed: $e\n$st');
       if (mounted) {
@@ -100,16 +112,22 @@ class _SkyMapWindowsWebViewState extends State<SkyMapWindowsWebView> {
 
   void _onWebMessage(dynamic raw) {
     try {
-      final Map<dynamic, dynamic> decoded;
-      if (raw is Map) {
-        decoded = raw;
-      } else if (raw is String) {
-        final parsed = jsonDecode(raw);
-        if (parsed is! Map) return;
-        decoded = parsed;
-      } else {
+      dynamic parsed = raw;
+      if (parsed is String) {
+        try {
+          parsed = jsonDecode(parsed);
+        } catch (_) {}
+      }
+      if (parsed is String) {
+        try {
+          parsed = jsonDecode(parsed);
+        } catch (_) {}
+      }
+      if (parsed is! Map) {
+        xLog.w('SkyMap Windows: unexpected web message: $raw');
         return;
       }
+      final Map<dynamic, dynamic> decoded = parsed;
 
       final type = decoded['type']?.toString();
       final payload = decoded['payload'];

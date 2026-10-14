@@ -59,6 +59,9 @@ final class SkyMapState extends Equatable {
   final bool sensorAvailable;
   final String? statusLine;
 
+  /// Error message when map fails during loading, null once map is ready.
+  String? get errorMessage => !mapReady ? statusLine : null;
+
   SkyMapState copyWith({
     DateTime? utc,
     double? observerLat,

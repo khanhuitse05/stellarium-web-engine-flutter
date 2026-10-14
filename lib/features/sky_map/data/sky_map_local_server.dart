@@ -21,7 +21,9 @@ class SkyMapLocalServer {
     final url = 'http://127.0.0.1:$port/';
     xLog.d('SkyMap: HTTP server listening on $url');
 
-    unawaited(_server!.forEach((request) => _handle(request, resolvedRoot)));
+    _server!.listen((request) {
+      unawaited(_handle(request, resolvedRoot));
+    });
 
     return url;
   }
@@ -45,7 +47,8 @@ class SkyMapLocalServer {
       final file = File(p.join(rootPath, path));
       final canonicalRoot = p.normalize(p.absolute(rootPath));
       final canonicalFile = p.normalize(p.absolute(file.path));
-      if (!canonicalFile.startsWith('$canonicalRoot${p.separator}')) {
+      if (!p.isWithin(canonicalRoot, canonicalFile)) {
+        xLog.w('SkyMap: HTTP 403 Forbidden for path=$path (outside root)');
         request.response.statusCode = HttpStatus.forbidden;
         await request.response.close();
         return;
@@ -59,6 +62,7 @@ class SkyMapLocalServer {
       }
 
       final bytes = await file.readAsBytes();
+      request.response.headers.set('Access-Control-Allow-Origin', '*');
       request.response.headers.contentType = _contentTypeFor(file.path);
       request.response.contentLength = bytes.length;
       if (path.endsWith('.html') || path.endsWith('.js')) {
