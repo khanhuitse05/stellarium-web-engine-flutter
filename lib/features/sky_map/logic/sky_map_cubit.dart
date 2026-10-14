@@ -24,6 +24,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     LocationService? location,
     SkyMapOrientationService? orientationService,
     Stream<SkyMapTelescopePosition?>? telescopePositionStream,
+    SkyMapTelescopePosition? initialTelescopePosition,
     SkyMapConfig? initialConfig,
     double? initialLat,
     double? initialLonEast,
@@ -35,6 +36,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
             initialLat: initialLat,
             initialLonEast: initialLonEast,
           ).copyWith(
+            telescope: initialTelescopePosition,
             config: initialConfig ?? const SkyMapConfig(),
             sensorAvailable: (orientationService ?? SkyMapOrientationService()).isSupported,
           ),
@@ -86,6 +88,10 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     if (stream != null) {
       _telescopeSub = stream.listen(_onTelescopePosition);
     }
+  }
+
+  void updateTelescopePosition(SkyMapTelescopePosition? position) {
+    _onTelescopePosition(position);
   }
 
   void _onTelescopePosition(SkyMapTelescopePosition? position) {

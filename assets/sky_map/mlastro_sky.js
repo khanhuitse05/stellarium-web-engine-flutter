@@ -553,6 +553,13 @@
   // -------------------------------------------------------------
   var _telescope = null; // { raHours, decDeg, isTracking, isSlewing, isParked, isAtHome }
   var _displayTelescope = null; // { raHours, decDeg } for smooth interpolation
+  var _lastTelemetryTime = 0;
+  var _telemetryIntervalMs = 1000;
+  var _animStartRa = 0;
+  var _animStartDec = 0;
+  var _animTargetRa = 0;
+  var _animTargetDec = 0;
+  var _animStartTime = 0;
   var _followTelescope = false;
   var _followAnimatingUntil = 0;
   var reticleCanvas = null;
@@ -563,6 +570,7 @@
     if (raHours === null || raHours === undefined || isNaN(Number(raHours))) {
       _telescope = null;
       _displayTelescope = null;
+      _lastTelemetryTime = 0;
       if (_followTelescope) {
         _followTelescope = false;
         post('follow_telescope_changed', false);
@@ -571,6 +579,16 @@
       var targetRa = Number(raHours);
       var targetDec = Number(decDeg);
       var hadTelescope = Boolean(_telescope);
+      var now = performance.now();
+
+      if (_lastTelemetryTime > 0) {
+        var dt = now - _lastTelemetryTime;
+        if (dt >= 200 && dt <= 6000) {
+          _telemetryIntervalMs = _telemetryIntervalMs * 0.25 + dt * 0.75;
+        }
+      }
+      _lastTelemetryTime = now;
+
       _telescope = {
         raHours: targetRa,
         decDeg: targetDec,
@@ -579,16 +597,34 @@
         isParked: Boolean(isParked),
         isAtHome: Boolean(isAtHome)
       };
+
       if (!_displayTelescope) {
         _displayTelescope = { raHours: targetRa, decDeg: targetDec };
+        _animStartRa = targetRa;
+        _animStartDec = targetDec;
+        _animTargetRa = targetRa;
+        _animTargetDec = targetDec;
+        _animStartTime = now;
       } else {
-        // If coordinate difference is very large (e.g. > 15 deg or initial sync), snap immediately
+        // If coordinate difference is very large (e.g. > 1 hr RA or > 15 deg Dec), snap immediately
         var dRaSnap = Math.abs(targetRa - _displayTelescope.raHours);
         if (dRaSnap > 12) dRaSnap = Math.abs(dRaSnap - 24);
         var dDecSnap = Math.abs(targetDec - _displayTelescope.decDeg);
         if (dRaSnap > 1.0 || dDecSnap > 15.0) {
           _displayTelescope.raHours = targetRa;
           _displayTelescope.decDeg = targetDec;
+          _animStartRa = targetRa;
+          _animStartDec = targetDec;
+          _animTargetRa = targetRa;
+          _animTargetDec = targetDec;
+          _animStartTime = now;
+        } else {
+          // Transition smoothly from current display position to new target
+          _animStartRa = _displayTelescope.raHours;
+          _animStartDec = _displayTelescope.decDeg;
+          _animTargetRa = targetRa;
+          _animTargetDec = targetDec;
+          _animStartTime = now;
         }
       }
       if (_followTelescope && !hadTelescope && ready && stel) {
@@ -1439,24 +1475,42 @@
       return;
     }
 
-    if (_displayTelescope) {
-      var dRa = _telescope.raHours - _displayTelescope.raHours;
+    if (_displayTelescope && _telescope) {
+      var now = performance.now();
+      var duration = Math.max(100, _telemetryIntervalMs);
+      var progress = (now - _animStartTime) / duration;
+
+      if (_telescope.isSlewing) {
+        // While slewing, allow extrapolation up to 35% past duration to bridge network/poll jitter
+        progress = Math.min(1.35, Math.max(0.0, progress));
+      } else {
+        progress = Math.min(1.0, Math.max(0.0, progress));
+      }
+
+      var dRa = _animTargetRa - _animStartRa;
       if (dRa > 12) dRa -= 24;
       else if (dRa < -12) dRa += 24;
-      var dDec = _telescope.decDeg - _displayTelescope.decDeg;
+      var dDec = _animTargetDec - _animStartDec;
 
       if (Math.abs(dRa) < 1e-7 && Math.abs(dDec) < 1e-7) {
-        _displayTelescope.raHours = _telescope.raHours;
-        _displayTelescope.decDeg = _telescope.decDeg;
+        _displayTelescope.raHours = _animTargetRa;
+        _displayTelescope.decDeg = _animTargetDec;
       } else {
-        var lerpFactor = 0.2;
-        _displayTelescope.raHours += dRa * lerpFactor;
-        if (_displayTelescope.raHours >= 24) _displayTelescope.raHours -= 24;
-        else if (_displayTelescope.raHours < 0) _displayTelescope.raHours += 24;
-        _displayTelescope.decDeg += dDec * lerpFactor;
+        var curRa = _animStartRa + dRa * progress;
+        if (curRa >= 24) curRa -= 24;
+        else if (curRa < 0) curRa += 24;
+        var curDec = _animStartDec + dDec * progress;
+
+        _displayTelescope.raHours = curRa;
+        _displayTelescope.decDeg = curDec;
       }
-    } else {
+    } else if (_telescope) {
       _displayTelescope = { raHours: _telescope.raHours, decDeg: _telescope.decDeg };
+      _animStartRa = _telescope.raHours;
+      _animStartDec = _telescope.decDeg;
+      _animTargetRa = _telescope.raHours;
+      _animTargetDec = _telescope.decDeg;
+      _animStartTime = performance.now();
     }
 
     if (_followTelescope && _displayTelescope && ready && stel && performance.now() >= _followAnimatingUntil) {
