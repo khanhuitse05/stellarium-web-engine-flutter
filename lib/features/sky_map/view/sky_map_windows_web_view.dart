@@ -154,6 +154,10 @@ class _SkyMapWindowsWebViewState extends State<SkyMapWindowsWebView> {
           }
         case 'user_pan':
           widget.cubit.onUserPan();
+        case 'follow_telescope_changed':
+          if (payload is bool) {
+            widget.cubit.onFollowTelescopeChanged(payload);
+          }
         case 'key_down':
           if (payload is Map) {
             widget.cubit.onKeyDown(Map<String, dynamic>.from(payload));

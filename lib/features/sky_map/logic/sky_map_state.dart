@@ -20,6 +20,7 @@ final class SkyMapState extends Equatable {
     this.mapReady = false,
     this.sensorTrackingActive = false,
     this.sensorAvailable = false,
+    this.followTelescope = false,
     this.statusLine,
   });
 
@@ -57,6 +58,7 @@ final class SkyMapState extends Equatable {
   final bool mapReady;
   final bool sensorTrackingActive;
   final bool sensorAvailable;
+  final bool followTelescope;
   final String? statusLine;
 
   /// Error message when map fails during loading, null once map is ready.
@@ -80,6 +82,7 @@ final class SkyMapState extends Equatable {
     bool? mapReady,
     bool? sensorTrackingActive,
     bool? sensorAvailable,
+    bool? followTelescope,
     String? statusLine,
     bool clearStatus = false,
   }) {
@@ -98,6 +101,7 @@ final class SkyMapState extends Equatable {
       mapReady: mapReady ?? this.mapReady,
       sensorTrackingActive: sensorTrackingActive ?? this.sensorTrackingActive,
       sensorAvailable: sensorAvailable ?? this.sensorAvailable,
+      followTelescope: followTelescope ?? this.followTelescope,
       statusLine: clearStatus ? null : (statusLine ?? this.statusLine),
     );
   }
@@ -118,6 +122,7 @@ final class SkyMapState extends Equatable {
         mapReady,
         sensorTrackingActive,
         sensorAvailable,
+        followTelescope,
         statusLine,
       ];
 }

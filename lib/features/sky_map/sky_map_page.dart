@@ -56,6 +56,8 @@ class SkyMapPage extends StatelessWidget {
     this.isSlewing = false,
     this.slewProgressText,
     this.onMoreDetails,
+    this.onCenterInFov,
+    this.centerInFovLabel,
     this.expandedDetailsBuilder,
     this.onSkyPointLongPress,
     this.onKeyEvent,
@@ -87,6 +89,8 @@ class SkyMapPage extends StatelessWidget {
   final bool isSlewing;
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
+  final SkyMapObjectAction? onCenterInFov;
+  final String? centerInFovLabel;
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapLongPressAction? onSkyPointLongPress;
   final SkyMapKeyAction? onKeyEvent;
@@ -124,6 +128,8 @@ class SkyMapPage extends StatelessWidget {
         isSlewing: isSlewing,
         slewProgressText: slewProgressText,
         onMoreDetails: onMoreDetails,
+        onCenterInFov: onCenterInFov,
+        centerInFovLabel: centerInFovLabel,
         expandedDetailsBuilder: expandedDetailsBuilder,
         onSkyPointLongPress: onSkyPointLongPress,
         onKeyEvent: onKeyEvent,
@@ -156,6 +162,8 @@ class _SkyMapView extends StatefulWidget {
     required this.isSlewing,
     required this.slewProgressText,
     required this.onMoreDetails,
+    this.onCenterInFov,
+    this.centerInFovLabel,
     this.expandedDetailsBuilder,
     this.onSkyPointLongPress,
     this.onKeyEvent,
@@ -183,6 +191,8 @@ class _SkyMapView extends StatefulWidget {
   final bool isSlewing;
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
+  final SkyMapObjectAction? onCenterInFov;
+  final String? centerInFovLabel;
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapLongPressAction? onSkyPointLongPress;
   final SkyMapKeyAction? onKeyEvent;
@@ -309,6 +319,8 @@ class _SkyMapViewState extends State<_SkyMapView> with RouteAware {
               isSlewing: widget.isSlewing,
               slewProgressText: widget.slewProgressText,
               onMoreDetails: widget.onMoreDetails,
+              onCenterInFov: widget.onCenterInFov,
+              centerInFovLabel: widget.centerInFovLabel,
               expandedDetailsBuilder: widget.expandedDetailsBuilder,
               hudBuilder: widget.hudBuilder,
               overlayBuilder: widget.overlayBuilder,
@@ -381,6 +393,8 @@ class _SkyMapOverlayLayer extends StatelessWidget {
     this.isSlewing = false,
     this.slewProgressText,
     this.onMoreDetails,
+    this.onCenterInFov,
+    this.centerInFovLabel,
     this.expandedDetailsBuilder,
     this.hudBuilder,
     this.overlayBuilder,
@@ -399,6 +413,8 @@ class _SkyMapOverlayLayer extends StatelessWidget {
   final bool isSlewing;
   final String? slewProgressText;
   final SkyMapObjectAction? onMoreDetails;
+  final SkyMapObjectAction? onCenterInFov;
+  final String? centerInFovLabel;
   final Widget Function(BuildContext context, SkyObject object)? expandedDetailsBuilder;
   final SkyMapHudBuilder? hudBuilder;
   final SkyMapOverlayBuilder? overlayBuilder;
@@ -503,6 +519,14 @@ class _SkyMapOverlayLayer extends StatelessWidget {
                   onMoreDetails: onMoreDetails == null
                       ? null
                       : () => onMoreDetails!(context, selected),
+                  onCenterInFov: () {
+                    if (onCenterInFov != null) {
+                      onCenterInFov!(context, selected);
+                    } else {
+                      context.read<SkyMapCubit>().centerOnObject(selected);
+                    }
+                  },
+                  centerInFovLabel: centerInFovLabel,
                   expandedBuilder: expandedDetailsBuilder,
                   backgroundColor: panelBackgroundColor,
                   borderColor: panelBorderColor,

@@ -91,7 +91,11 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   void _onTelescopePosition(SkyMapTelescopePosition? position) {
     if (isClosed) return;
     if (position == null) {
-      emit(state.copyWith(clearTelescope: true));
+      final wasFollowing = state.followTelescope;
+      emit(state.copyWith(
+        clearTelescope: true,
+        followTelescope: wasFollowing ? false : null,
+      ));
       unawaited(_pushTelescopeToMap(null));
       return;
     }
@@ -106,6 +110,11 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _pushConfigToMap(state.config);
     if (state.telescope != null) {
       await _pushTelescopeToMap(state.telescope);
+    }
+    if (state.followTelescope) {
+      await _runMapJs(
+        'window.MlastroSky && window.MlastroSky.setFollowTelescope && window.MlastroSky.setFollowTelescope(true);',
+      );
     }
     if (state.mountLimits != null) {
       await _pushMountLimitsToMap(state.mountLimits);
@@ -373,6 +382,10 @@ class SkyMapCubit extends Cubit<SkyMapState> {
       xLog.d('SkyMap: user touched/panned map — pausing sensor tracking');
       unawaited(stopSensorTracking(notifyUser: true));
     }
+    if (state.followTelescope) {
+      xLog.d('SkyMap: user touched/panned map — pausing follow telescope');
+      unawaited(stopFollowTelescope());
+    }
   }
 
   void _pushOrientationToMap(SkyOrientation orientation) {
@@ -532,22 +545,63 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     if (web == null || !state.mapReady) return;
     try {
       await web.runJavaScript(
-        'window.MlastroSky.centerOn(${t.raHours}, ${t.decDeg});',
+        'window.MlastroSky && window.MlastroSky.centerOn && window.MlastroSky.centerOn(${t.raHours}, ${t.decDeg});',
       );
     } catch (_) {}
+  }
+
+  Future<void> setFollowTelescope(bool enabled) async {
+    if (state.followTelescope == enabled) return;
+    emit(state.copyWith(followTelescope: enabled));
+    final web = _web;
+    if (web == null || !state.mapReady) return;
+    try {
+      await web.runJavaScript(
+        'window.MlastroSky && window.MlastroSky.setFollowTelescope && window.MlastroSky.setFollowTelescope($enabled);',
+      );
+    } catch (_) {}
+  }
+
+  Future<void> toggleFollowTelescope() async {
+    final next = !state.followTelescope;
+    if (next) {
+      if (state.telescope == null) {
+        emit(state.copyWith(statusLine: 'Mount coordinates unavailable'));
+        _scheduleStatusDismissal(duration: const Duration(seconds: 2));
+        return;
+      }
+      if (state.sensorTrackingActive) {
+        unawaited(stopSensorTracking(notifyUser: false));
+      }
+    }
+    await setFollowTelescope(next);
+  }
+
+  Future<void> stopFollowTelescope() async {
+    if (!state.followTelescope) return;
+    await setFollowTelescope(false);
+  }
+
+  void onFollowTelescopeChanged(bool isFollowing) {
+    if (state.followTelescope != isFollowing) {
+      emit(state.copyWith(followTelescope: isFollowing));
+    }
   }
 
   Future<void> centerOnObject(SkyObject object) async {
     final web = _web;
     if (web == null || !state.mapReady) return;
-    _logSelected(object, source: 'search');
+    _logSelected(object, source: 'center');
     if (object.kind != SkyObjectKind.customPoint) {
       clearTargetRing();
+    }
+    if (state.followTelescope) {
+      emit(state.copyWith(followTelescope: false));
     }
     emit(state.copyWith(selected: object));
     try {
       await web.runJavaScript(
-        'window.MlastroSky.centerOn(${object.raHours}, ${object.decDeg});',
+        'window.MlastroSky && window.MlastroSky.centerOnObject && window.MlastroSky.centerOnObject(${jsonEncode(object.id)}, ${object.raHours}, ${object.decDeg});',
       );
     } catch (_) {}
   }

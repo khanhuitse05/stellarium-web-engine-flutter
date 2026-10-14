@@ -12,6 +12,8 @@ class SkyObjectPanel extends StatefulWidget {
     this.onCopyCoordinates,
     this.onClose,
     this.onMoreDetails,
+    this.onCenterInFov,
+    this.centerInFovLabel,
     this.isSlewing = false,
     this.onStop,
     this.slewProgressText,
@@ -28,6 +30,8 @@ class SkyObjectPanel extends StatefulWidget {
   final VoidCallback? onCopyCoordinates;
   final VoidCallback? onClose;
   final VoidCallback? onMoreDetails;
+  final VoidCallback? onCenterInFov;
+  final String? centerInFovLabel;
   final bool isSlewing;
   final VoidCallback? onStop;
   final String? slewProgressText;
@@ -76,6 +80,8 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
     final onSync = widget.onSync;
     final onCopyCoordinates = widget.onCopyCoordinates;
     final onMoreDetails = widget.onMoreDetails;
+    final onCenterInFov = widget.onCenterInFov;
+    final centerInFovLabel = widget.centerInFovLabel;
     final hasDetails = widget.expandedBuilder != null || widget.onMoreDetails != null;
 
     final isBelowHorizon = !object.isAboveHorizon;
@@ -248,146 +254,169 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
               ),
             ],
             const SizedBox(height: 10),
-            Row(
-              children: [
-                if (hasDetails)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        side: BorderSide(
-                          color: isNight
-                              ? Colors.red.withValues(alpha: 0.5)
-                              : (_expanded ? effectiveAccentColor.withValues(alpha: 0.6) : Colors.white24),
+            Builder(
+              builder: (context) {
+                final actions = <Widget>[
+                  if (hasDetails)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          side: BorderSide(
+                            color: isNight
+                                ? Colors.red.withValues(alpha: 0.5)
+                                : (_expanded ? effectiveAccentColor.withValues(alpha: 0.6) : Colors.white24),
+                          ),
+                          foregroundColor: isNight
+                              ? const Color(0xFFFF8888)
+                              : (_expanded ? effectiveAccentColor : Colors.white),
                         ),
-                        foregroundColor: isNight
-                            ? const Color(0xFFFF8888)
-                            : (_expanded ? effectiveAccentColor : Colors.white),
-                      ),
-                      onPressed: () {
-                        if (widget.expandedBuilder != null) {
-                          setState(() => _expanded = !_expanded);
-                        } else {
-                          widget.onMoreDetails?.call();
-                        }
-                      },
-                      icon: Icon(
-                        _expanded ? Icons.expand_less_rounded : Icons.info_outline_rounded,
-                        size: 16,
-                      ),
-                      label: Text(
-                        _expanded ? 'Less' : 'Details',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                if (hasDetails &&
-                    (onGoto != null || onCopyCoordinates != null))
-                  const SizedBox(width: 8),
-                if (onCopyCoordinates != null)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        side: BorderSide(
-                          color: isNight
-                              ? Colors.red.withValues(alpha: 0.5)
-                              : Colors.white24,
+                        onPressed: () {
+                          if (widget.expandedBuilder != null) {
+                            setState(() => _expanded = !_expanded);
+                          } else {
+                            onMoreDetails?.call();
+                          }
+                        },
+                        icon: Icon(
+                          _expanded ? Icons.expand_less_rounded : Icons.info_outline_rounded,
+                          size: 16,
                         ),
-                        foregroundColor:
-                            isNight ? const Color(0xFFFF8888) : Colors.white,
-                      ),
-                      onPressed: onCopyCoordinates,
-                      icon: const Icon(Icons.copy, size: 16),
-                      label:
-                          const Text('Copy', style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                if (onSync != null && !isSlewing) ...[
-                  if (onMoreDetails != null || onCopyCoordinates != null)
-                    const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        side: BorderSide(
-                          color: isBelowHorizon
-                              ? (isNight
-                                  ? const Color(0x33FF2222)
-                                  : Colors.white12)
-                              : (isNight
-                                  ? Colors.amber.withValues(alpha: 0.6)
-                                  : Colors.amberAccent.withValues(alpha: 0.6)),
-                        ),
-                        foregroundColor: isNight
-                            ? const Color(0xFFFFCC66)
-                            : Colors.amberAccent,
-                        disabledForegroundColor: isNight
-                            ? const Color(0x55FFCC66)
-                            : Colors.white38,
-                      ),
-                      onPressed: isBelowHorizon ? null : onSync,
-                      icon: const Icon(Icons.sync, size: 16),
-                      label: const Text('Sync', style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                ],
-                if (isSlewing && onStop != null) ...[
-                  if (onMoreDetails != null || onCopyCoordinates != null)
-                    const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: const Color(0xFFD32F2F),
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: onStop,
-                      icon: const Icon(Icons.stop_rounded, size: 18),
-                      label: Text(
-                        slewProgressText != null
-                            ? 'STOP ($slewProgressText)'
-                            : 'STOP',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                        label: Text(
+                          _expanded ? 'Less' : 'Details',
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ),
                     ),
-                  ),
-                ] else if (onGoto != null) ...[
-                  if (onMoreDetails != null ||
-                      onCopyCoordinates != null ||
-                      (onSync != null && !isSlewing))
-                    const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: isNight
-                            ? const Color(0xFFCC1111)
-                            : effectiveAccentColor,
-                        disabledBackgroundColor: isNight
-                            ? const Color(0x33440000)
-                            : Colors.white.withValues(alpha: 0.08),
-                        disabledForegroundColor: isNight
-                            ? const Color(0x66FF6666)
-                            : Colors.white38,
+                  if (onCenterInFov != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          side: BorderSide(
+                            color: isNight
+                                ? Colors.red.withValues(alpha: 0.5)
+                                : Colors.white24,
+                          ),
+                          foregroundColor:
+                              isNight ? const Color(0xFFFF8888) : Colors.white,
+                        ),
+                        onPressed: onCenterInFov,
+                        icon: const Icon(Icons.center_focus_strong_rounded, size: 16),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            centerInFovLabel ?? 'Center in FOV',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
                       ),
-                      onPressed: isBelowHorizon ? null : onGoto,
-                      icon: const Icon(Icons.navigation, size: 16),
-                      label:
-                          const Text('Goto', style: TextStyle(fontSize: 12)),
                     ),
-                  ),
-                ]
-              ],
+                  if (onCopyCoordinates != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          side: BorderSide(
+                            color: isNight
+                                ? Colors.red.withValues(alpha: 0.5)
+                                : Colors.white24,
+                          ),
+                          foregroundColor:
+                              isNight ? const Color(0xFFFF8888) : Colors.white,
+                        ),
+                        onPressed: onCopyCoordinates,
+                        icon: const Icon(Icons.copy, size: 16),
+                        label:
+                            const Text('Copy', style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  if (onSync != null && !isSlewing)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          side: BorderSide(
+                            color: isBelowHorizon
+                                ? (isNight
+                                    ? const Color(0x33FF2222)
+                                    : Colors.white12)
+                                : (isNight
+                                    ? Colors.amber.withValues(alpha: 0.6)
+                                    : Colors.amberAccent.withValues(alpha: 0.6)),
+                          ),
+                          foregroundColor: isNight
+                              ? const Color(0xFFFFCC66)
+                              : Colors.amberAccent,
+                          disabledForegroundColor: isNight
+                              ? const Color(0x55FFCC66)
+                              : Colors.white38,
+                        ),
+                        onPressed: isBelowHorizon ? null : onSync,
+                        icon: const Icon(Icons.sync, size: 16),
+                        label: const Text('Sync', style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  if (isSlewing && onStop != null)
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: const Color(0xFFD32F2F),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: onStop,
+                        icon: const Icon(Icons.stop_rounded, size: 18),
+                        label: Text(
+                          slewProgressText != null
+                              ? 'STOP ($slewProgressText)'
+                              : 'STOP',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (onGoto != null)
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: isNight
+                              ? const Color(0xFFCC1111)
+                              : effectiveAccentColor,
+                          disabledBackgroundColor: isNight
+                              ? const Color(0x33440000)
+                              : Colors.white.withValues(alpha: 0.08),
+                          disabledForegroundColor: isNight
+                              ? const Color(0x66FF6666)
+                              : Colors.white38,
+                        ),
+                        onPressed: isBelowHorizon ? null : onGoto,
+                        icon: const Icon(Icons.navigation, size: 16),
+                        label:
+                            const Text('Goto', style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                ];
+
+                return Row(
+                  children: [
+                    for (int i = 0; i < actions.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      actions[i],
+                    ],
+                  ],
+                );
+              },
             ),
           ],
         ),

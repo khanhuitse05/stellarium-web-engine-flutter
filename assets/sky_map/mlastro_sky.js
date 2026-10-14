@@ -553,6 +553,8 @@
   // -------------------------------------------------------------
   var _telescope = null; // { raHours, decDeg, isTracking, isSlewing, isParked, isAtHome }
   var _displayTelescope = null; // { raHours, decDeg } for smooth interpolation
+  var _followTelescope = false;
+  var _followAnimatingUntil = 0;
   var reticleCanvas = null;
   var reticleCtx = null;
   var reticleLoopActive = false;
@@ -561,9 +563,14 @@
     if (raHours === null || raHours === undefined || isNaN(Number(raHours))) {
       _telescope = null;
       _displayTelescope = null;
+      if (_followTelescope) {
+        _followTelescope = false;
+        post('follow_telescope_changed', false);
+      }
     } else {
       var targetRa = Number(raHours);
       var targetDec = Number(decDeg);
+      var hadTelescope = Boolean(_telescope);
       _telescope = {
         raHours: targetRa,
         decDeg: targetDec,
@@ -583,6 +590,10 @@
           _displayTelescope.raHours = targetRa;
           _displayTelescope.decDeg = targetDec;
         }
+      }
+      if (_followTelescope && !hadTelescope && ready && stel) {
+        window.MlastroSky.centerOn(targetRa, targetDec);
+        _followAnimatingUntil = performance.now() + 500;
       }
     }
   }
@@ -1438,6 +1449,17 @@
       _displayTelescope = { raHours: _telescope.raHours, decDeg: _telescope.decDeg };
     }
 
+    if (_followTelescope && _displayTelescope && ready && stel && performance.now() >= _followAnimatingUntil) {
+      try {
+        var obs = stel.core.observer;
+        var ra = _displayTelescope.raHours * Math.PI / 12;
+        var dec = _displayTelescope.decDeg * Math.PI / 180;
+        var coordVec = stel.s2c(ra, dec);
+        var observed = stel.convertFrame(obs, 'JNOW', 'OBSERVED', coordVec);
+        stel.lookAt(observed, 0);
+      } catch (e) { /* ignore */ }
+    }
+
     var proj = projectCoordinates(_displayTelescope.raHours, _displayTelescope.decDeg);
     if (proj) {
       var isNight = false;
@@ -1636,6 +1658,10 @@
         if (holdTimer) {
           clearTimeout(holdTimer);
           holdTimer = null;
+        }
+        if (_followTelescope) {
+          _followTelescope = false;
+          post('follow_telescope_changed', false);
         }
         post('user_pan', {});
       }
@@ -1888,6 +1914,42 @@
       }
     },
 
+    setFollowTelescope: function (enabled) {
+      _followTelescope = Boolean(enabled);
+      if (_followTelescope) {
+        if (_telescope && ready && stel) {
+          window.MlastroSky.centerOn(_telescope.raHours, _telescope.decDeg);
+          _followAnimatingUntil = performance.now() + 500;
+        }
+      }
+      post('follow_telescope_changed', _followTelescope);
+    },
+
+    isFollowingTelescope: function () {
+      return _followTelescope;
+    },
+
+    centerOnObject: function (id, raHours, decDeg) {
+      if (!ready || !stel) return;
+      if (_followTelescope) {
+        _followTelescope = false;
+        post('follow_telescope_changed', false);
+      }
+      try {
+        var obj = id ? stel.getObj(id) : null;
+        if (obj) {
+          stel.core.selection = obj;
+          stel.pointAndLock(obj, 0.5);
+        } else if (raHours !== undefined && decDeg !== undefined) {
+          window.MlastroSky.centerOn(raHours, decDeg);
+        }
+      } catch (e) {
+        if (raHours !== undefined && decDeg !== undefined) {
+          window.MlastroSky.centerOn(raHours, decDeg);
+        }
+      }
+    },
+
     centerOn: function (raHours, decDeg, frame) {
       if (!ready || !stel) return;
       try {
@@ -1904,6 +1966,10 @@
 
     lookTowards: function (azDeg, altDeg) {
       if (!ready || !stel) return;
+      if (_followTelescope) {
+        _followTelescope = false;
+        post('follow_telescope_changed', false);
+      }
       try {
         var azRad = azDeg * Math.PI / 180;
         var altRad = altDeg * Math.PI / 180;
@@ -1990,6 +2056,10 @@
 
     selectById: function (id) {
       if (!ready || !stel || !id) return;
+      if (_followTelescope) {
+        _followTelescope = false;
+        post('follow_telescope_changed', false);
+      }
       try {
         temporaryRing = null;
         var obj = stel.getObj(id);
