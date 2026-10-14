@@ -895,63 +895,73 @@
     if (_mountLimits.isGem) {
       var isEastActive = _mountLimits.activePierSide === 'East';
       var isWestActive = _mountLimits.activePierSide === 'West';
+      var hasActivePier = isEastActive || isWestActive;
 
-      // East limit
-      var merERad = -(_mountLimits.meridianEastMinutes / 4.0) * Math.PI / 180;
-      var merEPts = [];
-      for (var dec = -85; dec <= 85; dec += 2.5) {
-        var p = projectHourAngle(merERad, dec * Math.PI / 180);
-        merEPts.push(p);
-      }
-      var merEStyle = {
-        color: isNight
-          ? (isEastActive ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
-          : (isEastActive ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
-        lineWidth: isEastActive ? 2.2 : 1.2,
-        dash: [6, 4]
-      };
-      var segsE = drawPolyline(ctx, merEPts, merEStyle);
-      var labelE = labels.meridianEast || ('Meridian limit E ' + (_mountLimits.meridianEastMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianEastMinutes) + 'm');
+      var showEast = hasActivePier ? isEastActive : true;
+      var showWest = hasActivePier ? isWestActive : true;
       var bothZero = Math.round(_mountLimits.meridianEastMinutes) === 0 && Math.round(_mountLimits.meridianWestMinutes) === 0;
 
-      var bE = null;
-      if (!bothZero) {
-        bE = drawLineLabel(ctx, merEPts, labelE, merEStyle, -45);
+      // East limit
+      if (showEast) {
+        var merERad = -(_mountLimits.meridianEastMinutes / 4.0) * Math.PI / 180;
+        var merEPts = [];
+        for (var dec = -85; dec <= 85; dec += 2.5) {
+          var p = projectHourAngle(merERad, dec * Math.PI / 180);
+          merEPts.push(p);
+        }
+        var merEStyle = {
+          color: isNight
+            ? (hasActivePier ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
+            : (hasActivePier ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
+          lineWidth: hasActivePier ? 2.2 : 1.2,
+          dash: [6, 4]
+        };
+        var segsE = drawPolyline(ctx, merEPts, merEStyle);
+        var labelE = labels.meridianEast || (bothZero && !showWest
+          ? 'Meridian limit (0m)'
+          : ('Meridian limit E ' + (_mountLimits.meridianEastMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianEastMinutes) + 'm'));
+
+        var bE = null;
+        if (!bothZero || !showWest) {
+          bE = drawLineLabel(ctx, merEPts, labelE, merEStyle, bothZero ? 0 : -45);
+        }
+        newRendered.push({
+          kind: 'meridianEast',
+          label: labelE,
+          value: (_mountLimits.meridianEastMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianEastMinutes) + 'm',
+          segments: segsE,
+          badgeRect: bE
+        });
       }
-      newRendered.push({
-        kind: 'meridianEast',
-        label: labelE,
-        value: (_mountLimits.meridianEastMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianEastMinutes) + 'm',
-        segments: segsE,
-        badgeRect: bE
-      });
 
       // West limit
-      var merWRad = +(_mountLimits.meridianWestMinutes / 4.0) * Math.PI / 180;
-      var merWPts = [];
-      for (var dec = -85; dec <= 85; dec += 2.5) {
-        var p = projectHourAngle(merWRad, dec * Math.PI / 180);
-        merWPts.push(p);
+      if (showWest) {
+        var merWRad = +(_mountLimits.meridianWestMinutes / 4.0) * Math.PI / 180;
+        var merWPts = [];
+        for (var dec = -85; dec <= 85; dec += 2.5) {
+          var p = projectHourAngle(merWRad, dec * Math.PI / 180);
+          merWPts.push(p);
+        }
+        var merWStyle = {
+          color: isNight
+            ? (hasActivePier ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
+            : (hasActivePier ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
+          lineWidth: hasActivePier ? 2.2 : 1.2,
+          dash: [6, 4]
+        };
+        var segsW = drawPolyline(ctx, merWPts, merWStyle);
+        var labelW = labels.meridianWest || (bothZero
+          ? 'Meridian limit (0m)'
+          : ('Meridian limit W ' + (_mountLimits.meridianWestMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianWestMinutes) + 'm'));
+        var bW = drawLineLabel(ctx, merWPts, labelW, merWStyle, bothZero ? 0 : 45);
+        newRendered.push({
+          kind: 'meridianWest',
+          label: labelW,
+          value: (_mountLimits.meridianWestMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianWestMinutes) + 'm',
+          segments: segsW,
+          badgeRect: bW
+        });
       }
-      var merWStyle = {
-        color: isNight
-          ? (isWestActive ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
-          : (isWestActive ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
-        lineWidth: isWestActive ? 2.2 : 1.2,
-        dash: [6, 4]
-      };
-      var segsW = drawPolyline(ctx, merWPts, merWStyle);
-      var labelW = labels.meridianWest || (bothZero
-        ? 'Meridian limit (0m)'
-        : ('Meridian limit W ' + (_mountLimits.meridianWestMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianWestMinutes) + 'm'));
-      var bW = drawLineLabel(ctx, merWPts, labelW, merWStyle, bothZero ? 0 : 45);
-      newRendered.push({
-        kind: 'meridianWest',
-        label: labelW,
-        value: (_mountLimits.meridianWestMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianWestMinutes) + 'm',
-        segments: segsW,
-        badgeRect: bW
-      });
     }
 
     _renderedLimitLines = newRendered;
