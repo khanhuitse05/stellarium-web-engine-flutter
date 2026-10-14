@@ -82,6 +82,10 @@ replacements = [
         'var mouseDown=false;var mouseButtons=0;var mousePos;var render=function',
         'var mouseDown=false;var mouseButtons=0;var mousePos;Module._mlastroResetPointer=function(){mouseDown=false;mouseButtons=0;if(typeof Module._core_on_mouse==="function"){for(var i=0;i<16;i++)Module._core_on_mouse(i,0,0,0,0)}};var render=function',
     ),
+    (
+        'var onWheelEvent=function(e){e.preventDefault();fixPageXY(e);var pos=getMousePos(e);var zoom_factor=1.05;var delta=getMouseWheelDelta(e)*2;Module._core_on_zoom(Math.pow(zoom_factor,delta),pos.x,pos.y);return false};',
+        'var onWheelEvent=function(e){e.preventDefault();var rect=canvas.getBoundingClientRect();var cx=rect.width/2;var cy=rect.height/2;var zoom_factor=1.05;var delta=getMouseWheelDelta(e)*2;Module._core_on_zoom(Math.pow(zoom_factor,delta),cx,cy);return false};',
+    ),
 ]
 
 for old, new in replacements:

@@ -73,6 +73,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await _loadLocation();
     _utcTimer?.cancel();
     _utcTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isClosed) return;
       if (state.isTimePaused) return;
       final stepSeconds = (state.timeMultiplier).round();
       final next = state.utc.add(Duration(seconds: stepSeconds));
@@ -493,6 +494,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   }
 
   Future<void> setMountLimits(SkyMapMountLimits? limits) async {
+    if (isClosed) return;
     emit(state.copyWith(
       mountLimits: limits,
       clearMountLimits: limits == null,
@@ -507,6 +509,7 @@ class SkyMapCubit extends Cubit<SkyMapState> {
   }
 
   Future<void> _pushMountLimitsToMap(SkyMapMountLimits? limits) async {
+    if (isClosed) return;
     final web = _web;
     if (web == null || !_bridgeReady) return;
     try {
@@ -685,6 +688,12 @@ class SkyMapCubit extends Cubit<SkyMapState> {
       'RA ${hourToString(object.raHours)} '
       'Dec ${formatDeclinationForSd(object.decDeg)}$mag$alt$az',
     );
+  }
+
+  @override
+  void emit(SkyMapState state) {
+    if (isClosed) return;
+    super.emit(state);
   }
 
   @override

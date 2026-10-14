@@ -1746,6 +1746,66 @@
     });
   }
 
+  function setupWheelZoom(canvas) {
+    if (!canvas) return;
+
+    function onWheel(e) {
+      if (!ready || !stel) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') {
+        e.stopImmediatePropagation();
+      }
+
+      var delta = 0;
+      if (e.type === 'wheel') {
+        // In standard wheel event, deltaY > 0 is scrolling down (zoom out), deltaY < 0 is scrolling up (zoom in)
+        delta = -e.deltaY;
+        if (e.deltaMode === 1) {
+          delta *= 33.3; // lines
+        } else if (e.deltaMode === 2) {
+          delta *= 800; // pages
+        }
+        delta /= 100;
+      } else if (e.type === 'mousewheel') {
+        delta = e.wheelDelta / 120;
+      } else if (e.type === 'DOMMouseScroll') {
+        delta = -e.detail / 3;
+      }
+
+      if (!delta || !isFinite(delta)) return;
+
+      // Always zoom anchored to the SCREEN CENTER
+      var rect = canvas.getBoundingClientRect();
+      var centerX = rect.width / 2;
+      var centerY = rect.height / 2;
+
+      var zoomFactor = 1.05;
+      var clampedDelta = Math.max(-3, Math.min(3, delta));
+      var factor = Math.pow(zoomFactor, clampedDelta * 2);
+
+      if (typeof stel._core_on_zoom === 'function') {
+        stel._core_on_zoom(factor, centerX, centerY);
+        if (stel.core) {
+          clampFov(stel.core, stel);
+        }
+      }
+
+      post('user_pan', {});
+    }
+
+    var targets = [canvas];
+    var root = document.getElementById('stel-root');
+    if (root && root !== canvas) targets.push(root);
+
+    targets.forEach(function (el) {
+      el.addEventListener('wheel', onWheel, { capture: true, passive: false });
+      el.addEventListener('mousewheel', onWheel, { capture: true, passive: false });
+      el.addEventListener('DOMMouseScroll', onWheel, { capture: true, passive: false });
+    });
+  }
+
   function boot() {
     log('boot');
     if (typeof StelWebEngine !== 'function') {
@@ -1769,6 +1829,7 @@
       setupLongPress(canvas);
       setupResizeObserver(canvas);
       setupKeyboardBridge();
+      setupWheelZoom(canvas);
       startReticleLoop();
     });
   }

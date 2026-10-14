@@ -97,6 +97,7 @@ class SkyMapAssetLoader {
     final webAssets = [
       '${_assetPrefix}index.html',
       '${_assetPrefix}mlastro_sky.js',
+      '${_assetPrefix}stellarium/stellarium-web-engine.js',
     ];
     for (final key in webAssets) {
       final relative = key.substring(_assetPrefix.length);
