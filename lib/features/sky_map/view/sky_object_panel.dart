@@ -18,6 +18,7 @@ class SkyObjectPanel extends StatefulWidget {
     this.onStop,
     this.slewProgressText,
     this.expandedBuilder,
+    this.initiallyExpanded,
     this.backgroundColor,
     this.borderColor,
     this.accentColor,
@@ -36,6 +37,7 @@ class SkyObjectPanel extends StatefulWidget {
   final VoidCallback? onStop;
   final String? slewProgressText;
   final Widget Function(BuildContext context, SkyObject object)? expandedBuilder;
+  final bool? initiallyExpanded;
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? accentColor;
@@ -45,13 +47,26 @@ class SkyObjectPanel extends StatefulWidget {
 }
 
 class _SkyObjectPanelState extends State<SkyObjectPanel> {
-  bool _expanded = false;
+  late bool _expanded;
+
+  bool get _defaultExpanded =>
+      widget.initiallyExpanded ??
+      (widget.object.kind == SkyObjectKind.customPoint);
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = _defaultExpanded;
+  }
 
   @override
   void didUpdateWidget(covariant SkyObjectPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.object.id != widget.object.id) {
-      _expanded = false;
+      _expanded = _defaultExpanded;
+    } else if (oldWidget.initiallyExpanded != widget.initiallyExpanded &&
+        widget.initiallyExpanded != null) {
+      _expanded = widget.initiallyExpanded!;
     }
   }
 

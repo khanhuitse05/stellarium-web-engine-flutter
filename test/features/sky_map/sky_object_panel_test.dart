@@ -77,4 +77,54 @@ void main() {
 
     expect(find.text('Goto'), findsOneWidget);
   });
+
+  testWidgets('SkyObjectPanel defaults to expanded for SkyObjectKind.customPoint',
+      (tester) async {
+    const customPoint = SkyObject(
+      id: 'custom_point_12_34',
+      name: 'Custom Point',
+      kind: SkyObjectKind.customPoint,
+      raHours: 12.0,
+      decDeg: 34.0,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SkyObjectPanel(
+            object: customPoint,
+            expandedBuilder: (context, obj) => const Text('Expanded Content Here'),
+            onGoto: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Expanded content should be visible immediately for customPoint
+    expect(find.text('Expanded Content Here'), findsOneWidget);
+    expect(find.text('Less'), findsOneWidget);
+    expect(find.byIcon(Icons.expand_less_rounded), findsOneWidget);
+  });
+
+  testWidgets('SkyObjectPanel defaults to collapsed for non-customPoint',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SkyObjectPanel(
+            object: testObject, // SkyObjectKind.messier
+            expandedBuilder: (context, obj) => const Text('Expanded Content Here'),
+            onGoto: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Expanded content should NOT be visible by default for standard objects
+    expect(find.text('Expanded Content Here'), findsNothing);
+    expect(find.text('Details'), findsOneWidget);
+    expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
+  });
 }
