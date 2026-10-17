@@ -254,66 +254,119 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
               ),
             ],
             const SizedBox(height: 10),
-            Builder(
-              builder: (context) {
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 360;
                 final actions = <Widget>[
                   if (hasDetails)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                          visualDensity: VisualDensity.compact,
-                          side: BorderSide(
-                            color: isNight
-                                ? Colors.red.withValues(alpha: 0.5)
-                                : (_expanded ? effectiveAccentColor.withValues(alpha: 0.6) : Colors.white24),
+                    if (isCompact)
+                      SizedBox(
+                        width: 48,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(48, 36),
+                            visualDensity: VisualDensity.compact,
+                            side: BorderSide(
+                              color: isNight
+                                  ? Colors.red.withValues(alpha: 0.5)
+                                  : (_expanded ? effectiveAccentColor.withValues(alpha: 0.6) : Colors.white24),
+                            ),
+                            foregroundColor: isNight
+                                ? const Color(0xFFFF8888)
+                                : (_expanded ? effectiveAccentColor : Colors.white),
                           ),
-                          foregroundColor: isNight
-                              ? const Color(0xFFFF8888)
-                              : (_expanded ? effectiveAccentColor : Colors.white),
-                        ),
-                        onPressed: () {
-                          if (widget.expandedBuilder != null) {
-                            setState(() => _expanded = !_expanded);
-                          } else {
-                            onMoreDetails?.call();
-                          }
-                        },
-                        icon: Icon(
-                          _expanded ? Icons.expand_less_rounded : Icons.info_outline_rounded,
-                          size: 16,
-                        ),
-                        label: Text(
-                          _expanded ? 'Less' : 'Details',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  if (onCenterInFov != null)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                          visualDensity: VisualDensity.compact,
-                          side: BorderSide(
-                            color: isNight
-                                ? Colors.red.withValues(alpha: 0.5)
-                                : Colors.white24,
+                          onPressed: () {
+                            if (widget.expandedBuilder != null) {
+                              setState(() => _expanded = !_expanded);
+                            } else {
+                              onMoreDetails?.call();
+                            }
+                          },
+                          child: Icon(
+                            _expanded ? Icons.expand_less_rounded : Icons.info_outline_rounded,
+                            size: 16,
                           ),
-                          foregroundColor:
-                              isNight ? const Color(0xFFFF8888) : Colors.white,
                         ),
-                        onPressed: onCenterInFov,
-                        icon: const Icon(Icons.center_focus_strong_rounded, size: 16),
-                        label: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            centerInFovLabel ?? 'Center in FOV',
+                      )
+                    else
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            visualDensity: VisualDensity.compact,
+                            side: BorderSide(
+                              color: isNight
+                                  ? Colors.red.withValues(alpha: 0.5)
+                                  : (_expanded ? effectiveAccentColor.withValues(alpha: 0.6) : Colors.white24),
+                            ),
+                            foregroundColor: isNight
+                                ? const Color(0xFFFF8888)
+                                : (_expanded ? effectiveAccentColor : Colors.white),
+                          ),
+                          onPressed: () {
+                            if (widget.expandedBuilder != null) {
+                              setState(() => _expanded = !_expanded);
+                            } else {
+                              onMoreDetails?.call();
+                            }
+                          },
+                          icon: Icon(
+                            _expanded ? Icons.expand_less_rounded : Icons.info_outline_rounded,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _expanded ? 'Less' : 'Details',
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),
                       ),
-                    ),
+                  if (onCenterInFov != null)
+                    if (isCompact)
+                      SizedBox(
+                        width: 48,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(48, 36),
+                            visualDensity: VisualDensity.compact,
+                            side: BorderSide(
+                              color: isNight
+                                  ? Colors.red.withValues(alpha: 0.5)
+                                  : Colors.white24,
+                            ),
+                            foregroundColor:
+                                isNight ? const Color(0xFFFF8888) : Colors.white,
+                          ),
+                          onPressed: onCenterInFov,
+                          child: const Icon(Icons.center_focus_strong_rounded, size: 16),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            visualDensity: VisualDensity.compact,
+                            side: BorderSide(
+                              color: isNight
+                                  ? Colors.red.withValues(alpha: 0.5)
+                                  : Colors.white24,
+                            ),
+                            foregroundColor:
+                                isNight ? const Color(0xFFFF8888) : Colors.white,
+                          ),
+                          onPressed: onCenterInFov,
+                          icon: const Icon(Icons.center_focus_strong_rounded, size: 16),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              centerInFovLabel ?? 'Center',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ),
                   if (onCopyCoordinates != null)
                     Expanded(
                       child: OutlinedButton.icon(
