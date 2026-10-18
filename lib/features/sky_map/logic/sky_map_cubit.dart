@@ -286,6 +286,11 @@ class SkyMapCubit extends Cubit<SkyMapState> {
     await lookTowards(azDeg: 180, altDeg: 89.9);
   }
 
+  /// Looks towards the Zenith and resets zoom to the widest FOV (smallest zoom).
+  Future<void> resetToZenithOverview() async {
+    await _runMapJs('window.MlastroSky && window.MlastroSky.resetToZenithOverview();');
+  }
+
   Future<void> lookCardinal(double azDeg) async {
     await lookTowards(azDeg: azDeg, altDeg: 25.0);
   }

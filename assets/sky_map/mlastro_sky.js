@@ -1728,6 +1728,10 @@
     if (!canvas) return;
 
     function onDown(e) {
+      if (e.button === 1) {
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
       if (e.button !== undefined && e.button !== 0) return;
       if (holdTimer) clearTimeout(holdTimer);
       holdTriggered = false;
@@ -1761,6 +1765,7 @@
     }
 
     function onUp(e) {
+      if (e.button !== undefined && e.button !== 0) return;
       if (holdTimer) {
         clearTimeout(holdTimer);
         holdTimer = null;
@@ -1925,6 +1930,59 @@
     });
   }
 
+  var lastZenithResetTime = 0;
+  function resetToZenithOverview() {
+    if (!ready || !stel) return;
+    var now = performance.now();
+    if (now - lastZenithResetTime < 350) return;
+    lastZenithResetTime = now;
+
+    if (_followTelescope) {
+      _followTelescope = false;
+      post('follow_telescope_changed', false);
+    }
+
+    try {
+      // Look straight up at Zenith (Alt: 89.9°, Az: 180° - as if lying on your back looking up at the sky)
+      var azRad = 180 * Math.PI / 180;
+      var altRad = 89.9 * Math.PI / 180;
+      var obsVector = stel.s2c(azRad, altRad);
+      stel.lookAt(obsVector, 0.6);
+
+      // Auto zoom to smallest zoom (widest FOV)
+      var targetFov = MAX_FOV_DEG;
+      stel.zoomTo(targetFov * stel.D2R, 0.6);
+
+      post('user_pan', {});
+    } catch (e) {
+      log('resetToZenithOverview: ' + e);
+    }
+  }
+
+  function setupMiddleClick(canvas) {
+    if (!canvas) return;
+
+    function onMiddleClick(e) {
+      if (e.button === 1) { // Middle mouse button / scroll wheel click
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') {
+          e.stopImmediatePropagation();
+        }
+        resetToZenithOverview();
+      }
+    }
+
+    var targets = [canvas, window];
+    var root = document.getElementById('stel-root');
+    if (root && root !== canvas) targets.push(root);
+
+    targets.forEach(function (el) {
+      el.addEventListener('mousedown', onMiddleClick, { capture: true, passive: false });
+      el.addEventListener('auxclick', onMiddleClick, { capture: true, passive: false });
+    });
+  }
+
   function boot() {
     log('boot');
     if (typeof StelWebEngine !== 'function') {
@@ -1949,6 +2007,7 @@
       setupResizeObserver(canvas);
       setupKeyboardBridge();
       setupWheelZoom(canvas);
+      setupMiddleClick(canvas);
       startReticleLoop();
     });
   }
@@ -2215,6 +2274,8 @@
       } catch (e) {
         log('setView failed: ' + e);
       }
-    }
+    },
+
+    resetToZenithOverview: resetToZenithOverview
   };
 })();

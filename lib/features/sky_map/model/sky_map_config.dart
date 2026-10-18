@@ -207,7 +207,7 @@ class SkyMapConfig extends Equatable {
       showDsos: json['showDsos'] as bool? ?? true,
       showPlanets: json['showPlanets'] as bool? ?? true,
       nightMode: json['nightMode'] as bool? ?? false,
-      limitZoom: json['limitZoom'] as bool? ?? true,
+      limitZoom: json['limitZoom'] as bool? ?? false,
       minFov: (json['minFov'] as num?)?.toDouble() ?? 6.0,
       maxFov: (json['maxFov'] as num?)?.toDouble() ?? 85.0,
       defaultFov: (json['defaultFov'] as num?)?.toDouble() ?? 75.0,

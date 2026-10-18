@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mlastro_skymap/features/sky_map/data/sky_map_asset_loader.dart';
 import 'package:mlastro_skymap/features/sky_map/data/sky_map_local_server.dart';
@@ -194,6 +195,13 @@ class _SkyMapWindowsWebViewState extends State<SkyMapWindowsWebView> {
       return const ColoredBox(color: Color(0xFF060913));
     }
 
-    return Webview(controller);
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons == kMiddleMouseButton) {
+          unawaited(widget.cubit.resetToZenithOverview());
+        }
+      },
+      child: Webview(controller),
+    );
   }
 }
