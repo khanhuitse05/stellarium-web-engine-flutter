@@ -1976,7 +1976,7 @@
   }
 
   var lastZenithResetTime = 0;
-  function resetToZenithOverview() {
+  function resetToZenithOverview(latDeg) {
     if (!ready || !stel) return;
     var now = performance.now();
     if (now - lastZenithResetTime < 350) return;
@@ -1992,8 +1992,27 @@
     }
 
     try {
-      // Look straight up at Zenith (Alt: 89.9°, Az: 180° - looking directly overhead)
-      var azRad = 180 * Math.PI / 180;
+      var obs = (stel.core && stel.core.observer) ? stel.core.observer : stel.observer;
+      var latRad = 0;
+      if (typeof latDeg === 'number' && !isNaN(latDeg)) {
+        latRad = latDeg * Math.PI / 180;
+      } else if (obs) {
+        if (typeof obs.latitude !== 'undefined') {
+          latRad = obs.latitude;
+        } else if (typeof obs.phi !== 'undefined') {
+          latRad = obs.phi;
+        }
+      }
+
+      if (obs && typeof obs.roll !== 'undefined') {
+        obs.roll = 0;
+      }
+
+      // Orientation convention:
+      // In Northern hemisphere (latitude >= 0), North celestial pole is at the bottom of the screen (Az: 0°).
+      // In Southern hemisphere (latitude < 0), South celestial pole is at the bottom of the screen (Az: 180°).
+      var azDeg = (latRad < 0) ? 180 : 0;
+      var azRad = azDeg * Math.PI / 180;
       var altRad = 89.9 * Math.PI / 180;
       var obsVector = stel.s2c(azRad, altRad);
       stel.lookAt(obsVector, 0.6);
