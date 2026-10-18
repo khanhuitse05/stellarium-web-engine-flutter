@@ -421,6 +421,20 @@
       if (config.nightMode !== undefined) {
         setNightMode(!!config.nightMode);
       }
+
+      if (config.limitZoom !== undefined) {
+        LIMIT_ZOOM = !!config.limitZoom;
+      }
+      if (config.minFov !== undefined && typeof config.minFov === 'number' && !isNaN(config.minFov)) {
+        MIN_FOV_DEG = config.minFov;
+      }
+      if (config.maxFov !== undefined && typeof config.maxFov === 'number' && !isNaN(config.maxFov)) {
+        MAX_FOV_DEG = config.maxFov;
+      }
+      if (config.defaultFov !== undefined && typeof config.defaultFov === 'number' && !isNaN(config.defaultFov)) {
+        DEFAULT_FOV_DEG = config.defaultFov;
+      }
+      clampFov(core, stel);
     } catch (e) {
       log('applyConfig error: ' + e);
     }
@@ -430,9 +444,24 @@
   var MIN_FOV_DEG = 6;
   var MAX_FOV_DEG = 85;
   var DEFAULT_FOV_DEG = 75;
+  var LIMIT_ZOOM = true;
 
   function clampFov(core, engine) {
     if (!core || !engine) return false;
+    if (!LIMIT_ZOOM) {
+      var minSafety = 0.0002 * engine.D2R;
+      var maxSafety = 180 * engine.D2R;
+      var fov = core.fov;
+      if (fov < minSafety) {
+        core.fov = minSafety;
+        return true;
+      }
+      if (fov > maxSafety) {
+        core.fov = maxSafety;
+        return true;
+      }
+      return false;
+    }
     var min = MIN_FOV_DEG * engine.D2R;
     var max = MAX_FOV_DEG * engine.D2R;
     var fov = core.fov;
@@ -1589,6 +1618,10 @@
           setDefaultObserver(stel);
           loadDataSources(core, skyDataUrl);
           configureScene(core, stel);
+          if (pendingConfig) {
+            applyConfig(pendingConfig);
+            pendingConfig = null;
+          }
           stel.zoomTo(DEFAULT_FOV_DEG * stel.D2R, 0);
           clampFov(core, stel);
           startFovGuard(core, stel);
@@ -1602,10 +1635,6 @@
           ready = true;
           hideLoading();
           applyPendingObserver();
-          if (pendingConfig) {
-            applyConfig(pendingConfig);
-            pendingConfig = null;
-          }
           post('ready', {});
           log('ready');
         } catch (e) {
@@ -2077,7 +2106,12 @@
     setFov: function (fovDeg) {
       if (!ready || !stel) return;
       try {
-        var clamped = Math.max(MIN_FOV_DEG, Math.min(MAX_FOV_DEG, fovDeg));
+        var clamped;
+        if (LIMIT_ZOOM) {
+          clamped = Math.max(MIN_FOV_DEG, Math.min(MAX_FOV_DEG, fovDeg));
+        } else {
+          clamped = Math.max(0.0002, Math.min(180, fovDeg));
+        }
         stel.zoomTo(clamped * stel.D2R, 0.3);
       } catch (e) {
         log('setFov: ' + e);
@@ -2088,7 +2122,18 @@
       if (!ready || !stel) return;
       try {
         var curFovDeg = stel.core.fov / stel.D2R;
-        var target = Math.max(MIN_FOV_DEG, Math.min(MAX_FOV_DEG, curFovDeg + deltaDeg));
+        var target;
+        if (LIMIT_ZOOM) {
+          target = Math.max(MIN_FOV_DEG, Math.min(MAX_FOV_DEG, curFovDeg + deltaDeg));
+        } else {
+          if (curFovDeg < 10) {
+            var step = deltaDeg < 0 ? curFovDeg * 0.4 : Math.max(0.2, curFovDeg * 1.5 - curFovDeg);
+            target = deltaDeg < 0 ? curFovDeg - step : curFovDeg + step;
+          } else {
+            target = curFovDeg + deltaDeg;
+          }
+          target = Math.max(0.0002, Math.min(180, target));
+        }
         stel.zoomTo(target * stel.D2R, 0.25);
       } catch (e) {
         log('zoomBy: ' + e);
