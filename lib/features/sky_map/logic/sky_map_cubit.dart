@@ -718,6 +718,9 @@ class SkyMapCubit extends Cubit<SkyMapState> {
       constellation: payload['constellation']?.toString(),
       typeDescription: payload['typeDescription']?.toString(),
       distance: (payload['distance'] as num?)?.toDouble(),
+      phase: (payload['phase'] as num?)?.toDouble(),
+      diameter: (payload['diameter'] as num?)?.toDouble(),
+      parallax: (payload['parallax'] as num?)?.toDouble(),
       aliases: (payload['aliases'] as List?)
               ?.map((e) => e.toString())
               .toList() ??

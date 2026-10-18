@@ -120,8 +120,50 @@
     var distance = null;
     try {
       var d = obj.getInfo('distance');
-      if (typeof d === 'number') distance = d;
+      if (typeof d === 'number' && !isNaN(d)) distance = d;
     } catch (e) { /* ignore */ }
+
+    var phase = null;
+    try {
+      var ph = obj.getInfo('phase');
+      if (typeof ph === 'number' && !isNaN(ph) && ph >= 0 && ph <= 1) phase = ph;
+    } catch (e) { /* ignore */ }
+
+    var diameter = null;
+    var kind = inferKind(obj);
+    if (kind !== 'constellation') {
+      try {
+        var rad = obj.getInfo('radius');
+        if (typeof rad === 'number' && !isNaN(rad) && rad > 0) {
+          // rad is angular radius in radians -> convert to angular diameter in arcseconds
+          diameter = rad * 2 * 180 * 3600 / Math.PI;
+        }
+      } catch (e) { /* ignore */ }
+      if (diameter == null) {
+        try {
+          var jd = obj.jsonData;
+          if (jd && jd.model_data && typeof jd.model_data.dimx === 'number' && !isNaN(jd.model_data.dimx)) {
+            // dimx is in arcminutes -> convert to arcseconds
+            diameter = jd.model_data.dimx * 60;
+          }
+        } catch (e) { /* ignore */ }
+      }
+    }
+
+    var parallax = null;
+    try {
+      var jdPlx = obj.jsonData;
+      if (jdPlx && jdPlx.model_data && typeof jdPlx.model_data.plx === 'number' && !isNaN(jdPlx.model_data.plx) && jdPlx.model_data.plx > 0) {
+        parallax = jdPlx.model_data.plx;
+      }
+    } catch (e) { /* ignore */ }
+    if (parallax == null && kind === 'star' && typeof distance === 'number' && !isNaN(distance) && distance > 0) {
+      // 1 parsec = 206264.806 AU. Parallax (mas) = 1000 / dist_pc = 206264806.25 / distance_au
+      var plxCalc = 206264806.25 / distance;
+      if (plxCalc >= 0.1 && plxCalc <= 10000) {
+        parallax = plxCalc;
+      }
+    }
 
     var aliases = [];
     if (names && names.length) {
@@ -134,7 +176,7 @@
     }
 
     return {
-      kind: inferKind(obj),
+      kind: kind,
       id: (names && names[0]) || label,
       name: label,
       raHours: raRad * 12 / Math.PI,
@@ -145,6 +187,9 @@
       constellation: constellation,
       typeDescription: typeDesc,
       distance: distance,
+      phase: phase,
+      diameter: diameter,
+      parallax: parallax,
       aliases: aliases
     };
   }

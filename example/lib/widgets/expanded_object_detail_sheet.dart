@@ -142,7 +142,13 @@ class ExpandedObjectDetailSheet extends StatelessWidget {
                   object.typeDescription!.isNotEmpty)
                 'Morphology / Classification: ${object.typeDescription}',
               if (object.distance != null)
-                'Distance: ${object.distance!.toStringAsFixed(1)} ly',
+                'Distance: ${formatDistanceForDisplay(object.distance!, isMoon: object.isMoonTarget)}',
+              if (object.phase != null && !object.phase!.isNaN)
+                'Phase: ${object.phase!.clamp(0.0, 1.0).toStringAsFixed(2)}',
+              if (object.diameter != null)
+                'Diameter: ${formatDiameterForDisplay(object.diameter!)}',
+              if (object.parallax != null)
+                'Parallax: ${formatParallaxForDisplay(object.parallax!)}',
               if (object.aliases.isNotEmpty)
                 'Designations: ${object.aliases.take(6).join(', ')}',
             ],

@@ -22,6 +22,12 @@ class SkyObjectPanel extends StatefulWidget {
     this.backgroundColor,
     this.borderColor,
     this.accentColor,
+    this.detailsTooltip,
+    this.centerInFovTooltip,
+    this.copyTooltip,
+    this.syncTooltip,
+    this.stopTooltip,
+    this.gotoTooltip,
     super.key,
   });
 
@@ -42,6 +48,12 @@ class SkyObjectPanel extends StatefulWidget {
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? accentColor;
+  final String? detailsTooltip;
+  final String? centerInFovTooltip;
+  final String? copyTooltip;
+  final String? syncTooltip;
+  final String? stopTooltip;
+  final String? gotoTooltip;
 
   @override
   State<SkyObjectPanel> createState() => _SkyObjectPanelState();
@@ -102,8 +114,13 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
     final onMoreDetails = widget.onMoreDetails;
     final onCenterInFov = widget.onCenterInFov;
     final centerInFovLabel = widget.centerInFovLabel;
-    final hasDetails =
-        widget.expandedBuilder != null || widget.onMoreDetails != null;
+    final hasEphemDetails = object.distance != null ||
+        (object.phase != null && !object.phase!.isNaN) ||
+        object.diameter != null ||
+        object.parallax != null;
+    final hasDetails = widget.expandedBuilder != null ||
+        widget.onMoreDetails != null ||
+        hasEphemDetails;
 
     final isBelowHorizon = !object.isAboveHorizon;
 
@@ -226,16 +243,60 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
                 ],
               ),
             ],
-            if (_expanded && widget.expandedBuilder != null) ...[
-              const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+            if (_expanded) ...[
+              () {
+                final ephemItems = <String>[];
+                if (object.distance != null) {
+                  final dStr = formatDistanceForDisplay(
+                    object.distance!,
+                    isMoon: object.isMoonTarget,
+                  );
+                  if (dStr.isNotEmpty) ephemItems.add('Distance $dStr');
+                }
+                if (object.phase != null && !object.phase!.isNaN) {
+                  final p = object.phase!.clamp(0.0, 1.0);
+                  ephemItems.add('Phase ${p.toStringAsFixed(2)}');
+                }
+                if (object.diameter != null) {
+                  final diaStr = formatDiameterForDisplay(object.diameter!);
+                  if (diaStr.isNotEmpty) ephemItems.add('Diameter $diaStr');
+                }
+                if (object.parallax != null) {
+                  final plxStr = formatParallaxForDisplay(object.parallax!);
+                  if (plxStr.isNotEmpty) ephemItems.add('Parallax $plxStr');
+                }
+                if (ephemItems.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          ephemItems.join('  ·  '),
+                          style: TextStyle(
+                            color: isNight
+                                ? const Color(0xFFFF9999)
+                                : Colors.white70,
+                            fontSize: 12,
+                          ),
+                          softWrap: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }(),
+              if (widget.expandedBuilder != null) ...[
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                  ),
+                  child: SingleChildScrollView(
+                    child: widget.expandedBuilder!(context, object),
+                  ),
                 ),
-                child: SingleChildScrollView(
-                  child: widget.expandedBuilder!(context, object),
-                ),
-              ),
+              ],
             ],
             const SizedBox(height: 10),
             _buildActions(
@@ -281,63 +342,63 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
         if (hasDetails)
           Expanded(
             flex: 4,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                visualDensity: VisualDensity.compact,
-                side: BorderSide(
-                  color: isNight
-                      ? Colors.red.withValues(alpha: 0.5)
-                      : (_expanded
-                            ? effectiveAccentColor.withValues(alpha: 0.6)
-                            : Colors.white24),
+            child: Tooltip(
+              message: widget.detailsTooltip ??
+                  (_expanded ? 'Collapse details' : 'Show details'),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(
+                    color: isNight
+                        ? Colors.red.withValues(alpha: 0.5)
+                        : (_expanded
+                              ? effectiveAccentColor.withValues(alpha: 0.6)
+                              : Colors.white24),
+                  ),
+                  foregroundColor: isNight
+                      ? const Color(0xFFFF8888)
+                      : (_expanded ? effectiveAccentColor : Colors.white),
                 ),
-                foregroundColor: isNight
-                    ? const Color(0xFFFF8888)
-                    : (_expanded ? effectiveAccentColor : Colors.white),
-              ),
-              onPressed: () {
-                if (widget.expandedBuilder != null) {
-                  setState(() => _expanded = !_expanded);
-                } else {
-                  onMoreDetails?.call();
-                }
-              },
-              // icon: Icon(
-              //   _expanded
-              //       ? Icons.expand_less_rounded
-              //       : Icons.info_outline_rounded,
-              //   size: 16,
-              // ),
-              label: Text(
-                _expanded ? 'Less' : 'Details',
-                style: const TextStyle(fontSize: 12),
+                onPressed: () {
+                  if (widget.expandedBuilder != null || widget.onMoreDetails == null) {
+                    setState(() => _expanded = !_expanded);
+                  } else {
+                    onMoreDetails?.call();
+                  }
+                },
+                label: Text(
+                  _expanded ? 'Less' : 'Details',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
           ),
         if (onCenterInFov != null)
           Expanded(
             flex: 4,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                visualDensity: VisualDensity.compact,
-                side: BorderSide(
-                  color: isNight
-                      ? Colors.red.withValues(alpha: 0.5)
-                      : Colors.white24,
+            child: Tooltip(
+              message: widget.centerInFovTooltip ?? 'Center target in view',
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(
+                    color: isNight
+                        ? Colors.red.withValues(alpha: 0.5)
+                        : Colors.white24,
+                  ),
+                  foregroundColor: isNight
+                      ? const Color(0xFFFF8888)
+                      : Colors.white,
                 ),
-                foregroundColor: isNight
-                    ? const Color(0xFFFF8888)
-                    : Colors.white,
-              ),
-              onPressed: onCenterInFov,
-              // icon: const Icon(Icons.center_focus_strong_rounded, size: 16),
-              label: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  centerInFovLabel ?? 'Center',
-                  style: const TextStyle(fontSize: 12),
+                onPressed: onCenterInFov,
+                label: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    centerInFovLabel ?? 'Center',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
               ),
             ),
@@ -345,68 +406,80 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
         if (onCopyCoordinates != null)
           Expanded(
             flex: 5,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                visualDensity: VisualDensity.compact,
-                side: BorderSide(
-                  color: isNight
-                      ? Colors.red.withValues(alpha: 0.5)
-                      : Colors.white24,
+            child: Tooltip(
+              message: widget.copyTooltip ?? 'Copy coordinates to clipboard',
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(
+                    color: isNight
+                        ? Colors.red.withValues(alpha: 0.5)
+                        : Colors.white24,
+                  ),
+                  foregroundColor: isNight
+                      ? const Color(0xFFFF8888)
+                      : Colors.white,
                 ),
-                foregroundColor: isNight
-                    ? const Color(0xFFFF8888)
-                    : Colors.white,
+                onPressed: onCopyCoordinates,
+                icon: const Icon(Icons.copy, size: 16),
+                label: const Text('Copy', style: TextStyle(fontSize: 12)),
               ),
-              onPressed: onCopyCoordinates,
-              icon: const Icon(Icons.copy, size: 16),
-              label: const Text('Copy', style: TextStyle(fontSize: 12)),
             ),
           ),
         if (onSync != null && !isSlewing)
           Expanded(
             flex: 5,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                visualDensity: VisualDensity.compact,
-                side: BorderSide(
-                  color: isBelowHorizon
-                      ? (isNight ? const Color(0x33FF2222) : Colors.white12)
-                      : (isNight
-                            ? Colors.amber.withValues(alpha: 0.6)
-                            : Colors.amberAccent.withValues(alpha: 0.6)),
+            child: Tooltip(
+              message: widget.syncTooltip ??
+                  (isBelowHorizon
+                      ? 'Target is below horizon'
+                      : 'Sync mount to target coordinates'),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(
+                    color: isBelowHorizon
+                        ? (isNight ? const Color(0x33FF2222) : Colors.white12)
+                        : (isNight
+                              ? Colors.amber.withValues(alpha: 0.6)
+                              : Colors.amberAccent.withValues(alpha: 0.6)),
+                  ),
+                  foregroundColor: isNight
+                      ? const Color(0xFFFFCC66)
+                      : Colors.amberAccent,
+                  disabledForegroundColor: isNight
+                      ? const Color(0x55FFCC66)
+                      : Colors.white38,
                 ),
-                foregroundColor: isNight
-                    ? const Color(0xFFFFCC66)
-                    : Colors.amberAccent,
-                disabledForegroundColor: isNight
-                    ? const Color(0x55FFCC66)
-                    : Colors.white38,
+                onPressed: isBelowHorizon ? null : onSync,
+                icon: const Icon(Icons.sync, size: 16),
+                label: const Text('Sync', style: TextStyle(fontSize: 12)),
               ),
-              onPressed: isBelowHorizon ? null : onSync,
-              icon: const Icon(Icons.sync, size: 16),
-              label: const Text('Sync', style: TextStyle(fontSize: 12)),
             ),
           ),
         if (isSlewing && onStop != null)
           Expanded(
             flex: 5,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: const Color(0xFFD32F2F),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: onStop,
-              icon: const Icon(Icons.stop_rounded, size: 18),
-              label: Text(
-                slewProgressText != null ? 'STOP ($slewProgressText)' : 'STOP',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+            child: Tooltip(
+              message: widget.stopTooltip ?? 'Stop telescope slewing',
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFFD32F2F),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: onStop,
+                icon: const Icon(Icons.stop_rounded, size: 18),
+                label: Text(
+                  slewProgressText != null ? 'STOP ($slewProgressText)' : 'STOP',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
@@ -414,23 +487,29 @@ class _SkyObjectPanelState extends State<SkyObjectPanel> {
         else if (onGoto != null)
           Expanded(
             flex: 5,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: isNight
-                    ? const Color(0xFFCC1111)
-                    : effectiveAccentColor,
-                disabledBackgroundColor: isNight
-                    ? const Color(0x33440000)
-                    : Colors.white.withValues(alpha: 0.08),
-                disabledForegroundColor: isNight
-                    ? const Color(0x66FF6666)
-                    : Colors.white38,
+            child: Tooltip(
+              message: widget.gotoTooltip ??
+                  (isBelowHorizon
+                      ? 'Target is below horizon'
+                      : 'Slew telescope to target'),
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: isNight
+                      ? const Color(0xFFCC1111)
+                      : effectiveAccentColor,
+                  disabledBackgroundColor: isNight
+                      ? const Color(0x33440000)
+                      : Colors.white.withValues(alpha: 0.08),
+                  disabledForegroundColor: isNight
+                      ? const Color(0x66FF6666)
+                      : Colors.white38,
+                ),
+                onPressed: isBelowHorizon ? null : onGoto,
+                icon: const Icon(Icons.navigation, size: 16),
+                label: const Text('Goto', style: TextStyle(fontSize: 12)),
               ),
-              onPressed: isBelowHorizon ? null : onGoto,
-              icon: const Icon(Icons.navigation, size: 16),
-              label: const Text('Goto', style: TextStyle(fontSize: 12)),
             ),
           ),
       ],
@@ -553,10 +632,33 @@ String skyObjectCoordinatesText(SkyObject object) {
   final altAz = (object.altDeg != null && object.azDeg != null)
       ? '\nAlt ${object.altDeg!.toStringAsFixed(2)}°  Az ${object.azDeg!.toStringAsFixed(2)}°'
       : '';
+  final ephemItems = <String>[];
+  if (object.distance != null) {
+    final dStr = formatDistanceForDisplay(
+      object.distance!,
+      isMoon: object.isMoonTarget,
+    );
+    if (dStr.isNotEmpty) ephemItems.add('Distance: $dStr');
+  }
+  if (object.phase != null && !object.phase!.isNaN) {
+    final p = object.phase!.clamp(0.0, 1.0);
+    ephemItems.add('Phase: ${p.toStringAsFixed(2)}');
+  }
+  if (object.diameter != null) {
+    final diaStr = formatDiameterForDisplay(object.diameter!);
+    if (diaStr.isNotEmpty) ephemItems.add('Diameter: $diaStr');
+  }
+  if (object.parallax != null) {
+    final plxStr = formatParallaxForDisplay(object.parallax!);
+    if (plxStr.isNotEmpty) ephemItems.add('Parallax: $plxStr');
+  }
+  final ephemText = ephemItems.isNotEmpty ? '\n${ephemItems.join('  ·  ')}' : '';
+
   return '${object.name}\n'
       'RA ${formatRaHoursForDisplay(object.raHours)}\n'
       'Dec ${formatDecDegreesForDisplay(object.decDeg)}'
-      '$altAz';
+      '$altAz'
+      '$ephemText';
 }
 
 Future<void> copySkyObjectCoordinates(

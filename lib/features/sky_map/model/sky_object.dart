@@ -15,6 +15,9 @@ class SkyObject extends Equatable {
     this.constellation,
     this.typeDescription,
     this.distance,
+    this.phase,
+    this.diameter,
+    this.parallax,
     this.aliases = const [],
   });
 
@@ -37,8 +40,17 @@ class SkyObject extends Equatable {
   /// Detailed object classification or astrophysical type (e.g. "Spiral Galaxy", "Red Supergiant").
   final String? typeDescription;
 
-  /// Distance in light-years (or AU for solar system objects) if known.
+  /// Distance in AU (or light-years) if known.
   final double? distance;
+
+  /// Phase illumination fraction from 0.0 (dark) to 1.0 (fully illuminated) for solar system bodies.
+  final double? phase;
+
+  /// Apparent angular diameter in arcseconds.
+  final double? diameter;
+
+  /// Stellar parallax in milliarcseconds (mas) if known.
+  final double? parallax;
 
   /// Alternative catalog designations and nicknames.
   final List<String> aliases;
@@ -54,6 +66,16 @@ class SkyObject extends Equatable {
     final i = id.trim().toLowerCase();
     if (i == 'sun' || i == 'name sun') return true;
     return aliases.any((a) => a.trim().toLowerCase() == 'sun');
+  }
+
+  /// Whether this object is the Moon (e.g. for km distance display).
+  bool get isMoonTarget {
+    if (kind == SkyObjectKind.moon) return true;
+    final n = name.trim().toLowerCase();
+    if (n == 'moon') return true;
+    final i = id.trim().toLowerCase();
+    if (i == 'moon' || i == 'name moon') return true;
+    return aliases.any((a) => a.trim().toLowerCase() == 'moon');
   }
 
   /// Formatted compass direction string derived from [azDeg] (e.g. "N", "NE", "SSE").
@@ -94,6 +116,9 @@ class SkyObject extends Equatable {
     String? constellation,
     String? typeDescription,
     double? distance,
+    double? phase,
+    double? diameter,
+    double? parallax,
     List<String>? aliases,
   }) {
     return SkyObject(
@@ -108,6 +133,9 @@ class SkyObject extends Equatable {
       constellation: constellation ?? this.constellation,
       typeDescription: typeDescription ?? this.typeDescription,
       distance: distance ?? this.distance,
+      phase: phase ?? this.phase,
+      diameter: diameter ?? this.diameter,
+      parallax: parallax ?? this.parallax,
       aliases: aliases ?? this.aliases,
     );
   }
@@ -125,6 +153,9 @@ class SkyObject extends Equatable {
         constellation,
         typeDescription,
         distance,
+        phase,
+        diameter,
+        parallax,
         aliases,
       ];
 }

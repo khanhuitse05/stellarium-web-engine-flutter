@@ -125,3 +125,63 @@ double _gmstDegrees(double jdUt) {
     azDeg: _normDeg360(azRad * (180 / 3.141592653589793)),
   );
 }
+
+/// Formats astronomical distance (in AU) into a human-readable display string using AU or light-years,
+/// or km for the Moon (and near-Earth distances < 0.005 AU).
+/// - Moon / near-Earth (< 0.005 AU or isMoon): e.g. "384,400 km".
+/// - Solar system: e.g. "5.70 AU", "1.52 AU".
+/// - Deep sky / stars: e.g. "4.2 ly", "25.0 kly", "2.54 Mly".
+String formatDistanceForDisplay(double distanceAu, {bool isMoon = false}) {
+  if (distanceAu.isNaN || distanceAu <= 0) return '';
+  const auPerLy = 63241.077;
+  const kmPerAu = 149597870.7;
+
+  if (isMoon || distanceAu < 0.005) {
+    final km = (distanceAu * kmPerAu).round();
+    final formattedKm = km.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (match) => '${match[1]},',
+    );
+    return '$formattedKm km';
+  }
+
+  if (distanceAu >= auPerLy * 0.1) {
+    final ly = distanceAu / auPerLy;
+    if (ly >= 1000000) {
+      return '${(ly / 1000000).toStringAsFixed(2)} Mly';
+    } else if (ly >= 1000) {
+      return '${(ly / 1000).toStringAsFixed(1)} kly';
+    } else if (ly >= 10) {
+      return '${ly.toStringAsFixed(1)} ly';
+    } else {
+      return '${ly.toStringAsFixed(2)} ly';
+    }
+  } else if (distanceAu >= 0.01) {
+    return '${distanceAu.toStringAsFixed(2)} AU';
+  } else {
+    return '${distanceAu.toStringAsFixed(4)} AU';
+  }
+}
+
+/// Formats angular diameter (in arcseconds) into a human-readable display string.
+/// e.g. 33.82" -> 33.82", 31.4' -> 31.4', 1.2° -> 1.2°.
+String formatDiameterForDisplay(double diameterArcsec) {
+  if (diameterArcsec.isNaN || diameterArcsec <= 0) return '';
+  if (diameterArcsec >= 3600) {
+    final deg = diameterArcsec / 3600;
+    return '${deg.toStringAsFixed(1)}°';
+  } else if (diameterArcsec >= 60) {
+    final arcmin = diameterArcsec / 60;
+    return '${arcmin.toStringAsFixed(1)}\'';
+  } else {
+    return '${diameterArcsec.toStringAsFixed(2)}"';
+  }
+}
+
+/// Formats stellar parallax (in milliarcseconds, mas).
+/// e.g. 14.4 mas.
+String formatParallaxForDisplay(double parallaxMas) {
+  if (parallaxMas.isNaN || parallaxMas <= 0) return '';
+  return '${parallaxMas.toStringAsFixed(1)} mas';
+}
+
