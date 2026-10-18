@@ -1942,16 +1942,20 @@
       post('follow_telescope_changed', false);
     }
 
+    if (stel.core && stel.core.lock) {
+      stel.core.lock = null;
+    }
+
     try {
-      // Look straight up at Zenith (Alt: 89.9°, Az: 180° - as if lying on your back looking up at the sky)
+      // Look straight up at Zenith (Alt: 89.9°, Az: 180° - looking directly overhead)
       var azRad = 180 * Math.PI / 180;
       var altRad = 89.9 * Math.PI / 180;
       var obsVector = stel.s2c(azRad, altRad);
       stel.lookAt(obsVector, 0.6);
 
-      // Auto zoom to smallest zoom (widest FOV)
-      var targetFov = MAX_FOV_DEG;
-      stel.zoomTo(targetFov * stel.D2R, 0.6);
+      // Auto zoom out to maximum FOV (85° in limited mode, 120° in unlimited mode)
+      var maxOutFov = LIMIT_ZOOM ? MAX_FOV_DEG : 200;
+      stel.zoomTo(maxOutFov * stel.D2R, 0.6);
 
       post('user_pan', {});
     } catch (e) {
