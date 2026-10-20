@@ -11,6 +11,10 @@ class SkyMapMountLimits extends Equatable {
     this.isGem = true,
     this.labels = const {},
     this.enabled = true,
+    this.isHorizonHit = false,
+    this.isOverheadHit = false,
+    this.isMeridianEastHit = false,
+    this.isMeridianWestHit = false,
   });
 
   /// Horizon / minimum altitude limit in degrees (e.g. 0° to 30°).
@@ -39,6 +43,18 @@ class SkyMapMountLimits extends Equatable {
   /// Master switch for rendering this overlay on the canvas.
   final bool enabled;
 
+  /// Whether the horizon limit is currently reached or crossed by telescope.
+  final bool isHorizonHit;
+
+  /// Whether the overhead limit is currently reached or crossed by telescope.
+  final bool isOverheadHit;
+
+  /// Whether the East meridian limit is currently reached or crossed by telescope.
+  final bool isMeridianEastHit;
+
+  /// Whether the West meridian limit is currently reached or crossed by telescope.
+  final bool isMeridianWestHit;
+
   bool get overheadEnabled => maxAltDeg < 90;
 
   SkyMapMountLimits copyWith({
@@ -50,6 +66,10 @@ class SkyMapMountLimits extends Equatable {
     bool? isGem,
     Map<String, String>? labels,
     bool? enabled,
+    bool? isHorizonHit,
+    bool? isOverheadHit,
+    bool? isMeridianEastHit,
+    bool? isMeridianWestHit,
   }) {
     return SkyMapMountLimits(
       minAltDeg: minAltDeg ?? this.minAltDeg,
@@ -60,6 +80,10 @@ class SkyMapMountLimits extends Equatable {
       isGem: isGem ?? this.isGem,
       labels: labels ?? this.labels,
       enabled: enabled ?? this.enabled,
+      isHorizonHit: isHorizonHit ?? this.isHorizonHit,
+      isOverheadHit: isOverheadHit ?? this.isOverheadHit,
+      isMeridianEastHit: isMeridianEastHit ?? this.isMeridianEastHit,
+      isMeridianWestHit: isMeridianWestHit ?? this.isMeridianWestHit,
     );
   }
 
@@ -72,6 +96,10 @@ class SkyMapMountLimits extends Equatable {
         'isGem': isGem,
         'labels': labels,
         'enabled': enabled,
+        'isHorizonHit': isHorizonHit,
+        'isOverheadHit': isOverheadHit,
+        'isMeridianEastHit': isMeridianEastHit,
+        'isMeridianWestHit': isMeridianWestHit,
       };
 
   factory SkyMapMountLimits.fromJson(Map<String, dynamic> json) {
@@ -86,6 +114,10 @@ class SkyMapMountLimits extends Equatable {
       isGem: json['isGem'] as bool? ?? true,
       labels: (json['labels'] as Map?)?.cast<String, String>() ?? const {},
       enabled: json['enabled'] as bool? ?? true,
+      isHorizonHit: json['isHorizonHit'] as bool? ?? false,
+      isOverheadHit: json['isOverheadHit'] as bool? ?? false,
+      isMeridianEastHit: json['isMeridianEastHit'] as bool? ?? false,
+      isMeridianWestHit: json['isMeridianWestHit'] as bool? ?? false,
     );
   }
 
@@ -99,5 +131,9 @@ class SkyMapMountLimits extends Equatable {
         isGem,
         labels,
         enabled,
+        isHorizonHit,
+        isOverheadHit,
+        isMeridianEastHit,
+        isMeridianWestHit,
       ];
 }

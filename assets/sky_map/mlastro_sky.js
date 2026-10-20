@@ -726,14 +726,22 @@
       _mountLimits = null;
     } else {
       _mountLimits = {
-        minAltDeg: Number(limits.minAltDeg) || 0,
-        maxAltDeg: Number(limits.maxAltDeg) || 90,
+        minAltDeg: (typeof limits.minAltDeg === 'number' && !isNaN(limits.minAltDeg))
+          ? limits.minAltDeg
+          : (Number(limits.minAltDeg) || 0),
+        maxAltDeg: (typeof limits.maxAltDeg === 'number' && !isNaN(limits.maxAltDeg))
+          ? limits.maxAltDeg
+          : (Number(limits.maxAltDeg) || 90),
         meridianEastMinutes: Number(limits.meridianEastMinutes) || 0,
         meridianWestMinutes: Number(limits.meridianWestMinutes) || 0,
         activePierSide: limits.activePierSide || null,
         isGem: limits.isGem !== false,
         labels: limits.labels || {},
-        enabled: limits.enabled !== false
+        enabled: limits.enabled !== false,
+        isHorizonHit: Boolean(limits.isHorizonHit),
+        isOverheadHit: Boolean(limits.isOverheadHit),
+        isMeridianEastHit: Boolean(limits.isMeridianEastHit),
+        isMeridianWestHit: Boolean(limits.isMeridianWestHit)
       };
     }
   }
@@ -859,6 +867,10 @@
     ctx.strokeStyle = style.color;
     ctx.lineWidth = style.lineWidth || 1.5;
     ctx.setLineDash(style.dash || [6, 6]);
+    if (style.shadowColor) {
+      ctx.shadowColor = style.shadowColor;
+      ctx.shadowBlur = style.shadowBlur || 8;
+    }
 
     var drawing = false;
     ctx.beginPath();
@@ -921,11 +933,16 @@
     }
     _drawnLabelRects.push({ x: bgX, y: bgY, w: bgW, h: bgH });
 
+    if (style.shadowColor) {
+      ctx.shadowColor = style.shadowColor;
+      ctx.shadowBlur = style.shadowBlur || 8;
+    }
+
     ctx.fillStyle = style.badgeBg || 'rgba(15, 23, 42, 0.85)';
     drawRoundedRect(ctx, bgX, bgY, bgW, bgH, 4);
     ctx.fill();
 
-    ctx.strokeStyle = style.color;
+    ctx.strokeStyle = style.badgeBorderColor || style.color;
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
     drawRoundedRect(ctx, bgX, bgY, bgW, bgH, 4);
@@ -951,6 +968,77 @@
     var newRendered = [];
     var labels = _mountLimits.labels || {};
 
+    var isOhHit = Boolean(_mountLimits.isOverheadHit);
+    var isHzHit = Boolean(_mountLimits.isHorizonHit);
+    var isMerEHit = Boolean(_mountLimits.isMeridianEastHit);
+    var isMerWHit = Boolean(_mountLimits.isMeridianWestHit);
+
+    // Live reticle check against limits if telescope coordinates available
+    if (_telescope && ready && stel) {
+      try {
+        var obs = stel.core.observer;
+        var tRaRad = _telescope.raHours * Math.PI / 12;
+        var tDecRad = _telescope.decDeg * Math.PI / 180;
+        var vCoord = stel.s2c(tRaRad, tDecRad);
+        var vObs = stel.convertFrame(obs, 'JNOW', 'OBSERVED', vCoord);
+        if (vObs) {
+          var tAltDeg = Math.asin(Math.max(-1, Math.min(1, vObs[2]))) * 180 / Math.PI;
+          if (tAltDeg <= _mountLimits.minAltDeg + 0.1) isHzHit = true;
+          if (_mountLimits.maxAltDeg < 90 && tAltDeg >= _mountLimits.maxAltDeg - 0.1) isOhHit = true;
+        }
+        if (_mountLimits.isGem && obs.siderealTime !== undefined) {
+          var haRad = obs.siderealTime - tRaRad;
+          haRad = Math.atan2(Math.sin(haRad), Math.cos(haRad));
+          var haMinutes = (haRad * 180 / Math.PI) * 4.0;
+          if (_mountLimits.activePierSide === 'West') {
+            if (haMinutes >= _mountLimits.meridianWestMinutes - 0.5) isMerWHit = true;
+          } else if (_mountLimits.activePierSide === 'East') {
+            if (haMinutes <= -(_mountLimits.meridianEastMinutes - 0.5)) isMerEHit = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Normal (softer / lighter red so it doesn't pop out too brightly) vs Hit (bold, glowing vivid red)
+    function getLimitStyle(isHit, options) {
+      var isPierActive = options && options.isPierActive;
+      var isInactivePier = options && options.isInactivePier;
+
+      if (isHit) {
+        return {
+          color: 'rgba(255, 30, 30, 1.0)',
+          lineWidth: 2.8,
+          dash: [6, 4],
+          shadowColor: 'rgba(255, 0, 0, 0.95)',
+          shadowBlur: 10,
+          badgeBg: 'rgba(200, 20, 20, 0.90)',
+          badgeBorderColor: 'rgba(255, 255, 255, 0.90)',
+          textColor: '#FFFFFF',
+          isHit: true
+        };
+      }
+
+      var alpha = isInactivePier ? 0.20 : (isPierActive ? 0.45 : 0.38);
+      var badgeAlpha = isInactivePier ? 0.35 : 0.65;
+      var textAlpha = isInactivePier ? 0.50 : 0.85;
+
+      return {
+        color: isNight
+          ? 'rgba(235, 80, 80, ' + alpha + ')'
+          : 'rgba(240, 95, 95, ' + alpha + ')',
+        lineWidth: isPierActive ? 1.4 : 1.2,
+        dash: options && options.dash ? options.dash : [5, 5],
+        badgeBg: isNight ? 'rgba(25, 10, 10, 0.75)' : 'rgba(15, 23, 42, 0.75)',
+        badgeBorderColor: isNight
+          ? 'rgba(235, 80, 80, ' + badgeAlpha + ')'
+          : 'rgba(240, 95, 95, ' + badgeAlpha + ')',
+        textColor: isNight
+          ? 'rgba(255, 140, 140, ' + textAlpha + ')'
+          : 'rgba(250, 160, 160, ' + textAlpha + ')',
+        isHit: false
+      };
+    }
+
     // 1. Overhead limit (altitude circle near zenith)
     if (_mountLimits.maxAltDeg < 90 && _mountLimits.maxAltDeg >= 40) {
       var maxAltRad = _mountLimits.maxAltDeg * Math.PI / 180;
@@ -959,11 +1047,7 @@
         var p = projectObserved(az * Math.PI / 180, maxAltRad);
         overheadPts.push(p);
       }
-      var overheadStyle = {
-        color: isNight ? 'rgba(255, 120, 80, 0.9)' : 'rgba(255, 175, 0, 0.9)',
-        lineWidth: 1.8,
-        dash: [6, 6]
-      };
+      var overheadStyle = getLimitStyle(isOhHit, { dash: [6, 6] });
       var segs = drawPolyline(ctx, overheadPts, overheadStyle);
       var ohLabel = labels.overhead || ('Overhead ' + Math.round(_mountLimits.maxAltDeg) + '°');
       var bOh = drawLineLabel(ctx, overheadPts, ohLabel, overheadStyle);
@@ -972,23 +1056,21 @@
         label: ohLabel,
         value: Math.round(_mountLimits.maxAltDeg) + '°',
         segments: segs,
-        badgeRect: bOh
+        badgeRect: bOh,
+        isHit: isOhHit
       });
     }
 
     // 2. Horizon limit (minimum altitude circle)
-    if (_mountLimits.minAltDeg > -30 && _mountLimits.minAltDeg < 80) {
+    // Supports down to -60° (allowing OnStep default/hint of -30°)
+    if (_mountLimits.minAltDeg >= -60 && _mountLimits.minAltDeg < 80) {
       var minAltRad = _mountLimits.minAltDeg * Math.PI / 180;
       var horizonPts = [];
       for (var az = 0; az <= 360; az += 5) {
         var p = projectObserved(az * Math.PI / 180, minAltRad);
         horizonPts.push(p);
       }
-      var horizonStyle = {
-        color: isNight ? 'rgba(255, 100, 70, 0.75)' : 'rgba(255, 150, 50, 0.75)',
-        lineWidth: 1.4,
-        dash: [5, 5]
-      };
+      var horizonStyle = getLimitStyle(isHzHit, { dash: [5, 5] });
       var segs = drawPolyline(ctx, horizonPts, horizonStyle);
       var hzLabel = labels.horizon || ('Horizon ' + Math.round(_mountLimits.minAltDeg) + '°');
       var bHz = drawLineLabel(ctx, horizonPts, hzLabel, horizonStyle);
@@ -997,7 +1079,8 @@
         label: hzLabel,
         value: Math.round(_mountLimits.minAltDeg) + '°',
         segments: segs,
-        badgeRect: bHz
+        badgeRect: bHz,
+        isHit: isHzHit
       });
     }
 
@@ -1019,13 +1102,11 @@
           var p = projectHourAngle(merERad, dec * Math.PI / 180);
           merEPts.push(p);
         }
-        var merEStyle = {
-          color: isNight
-            ? (hasActivePier ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
-            : (hasActivePier ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
-          lineWidth: hasActivePier ? 2.2 : 1.2,
+        var merEStyle = getLimitStyle(isMerEHit, {
+          isPierActive: hasActivePier && isEastActive,
+          isInactivePier: hasActivePier && !isEastActive,
           dash: [6, 4]
-        };
+        });
         var segsE = drawPolyline(ctx, merEPts, merEStyle);
         var labelE = labels.meridianEast || (bothZero && !showWest
           ? 'Meridian limit (0m)'
@@ -1040,7 +1121,8 @@
           label: labelE,
           value: (_mountLimits.meridianEastMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianEastMinutes) + 'm',
           segments: segsE,
-          badgeRect: bE
+          badgeRect: bE,
+          isHit: isMerEHit
         });
       }
 
@@ -1052,13 +1134,11 @@
           var p = projectHourAngle(merWRad, dec * Math.PI / 180);
           merWPts.push(p);
         }
-        var merWStyle = {
-          color: isNight
-            ? (hasActivePier ? 'rgba(255, 70, 70, 0.95)' : 'rgba(255, 70, 70, 0.40)')
-            : (hasActivePier ? 'rgba(255, 75, 50, 0.95)' : 'rgba(255, 75, 50, 0.40)'),
-          lineWidth: hasActivePier ? 2.2 : 1.2,
+        var merWStyle = getLimitStyle(isMerWHit, {
+          isPierActive: hasActivePier && isWestActive,
+          isInactivePier: hasActivePier && !isWestActive,
           dash: [6, 4]
-        };
+        });
         var segsW = drawPolyline(ctx, merWPts, merWStyle);
         var labelW = labels.meridianWest || (bothZero
           ? 'Meridian limit (0m)'
@@ -1069,7 +1149,8 @@
           label: labelW,
           value: (_mountLimits.meridianWestMinutes >= 0 ? '+' : '') + Math.round(_mountLimits.meridianWestMinutes) + 'm',
           segments: segsW,
-          badgeRect: bW
+          badgeRect: bW,
+          isHit: isMerWHit
         });
       }
     }
