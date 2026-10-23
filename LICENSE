@@ -5,6 +5,6 @@
 
  This package bundles Stellarium Web Engine (AGPL-3.0) and related sky-map
  integration code. The corresponding open-source repository is available at:
- https://github.com/khanhuitse05/stellarium-web-engine-flutter
+ https://github.com/saigonastrolab/stellarium-web-engine-flutter
 
  See THIRD_PARTY_NOTICES.md for attribution details.

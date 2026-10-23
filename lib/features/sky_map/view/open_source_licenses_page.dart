@@ -5,7 +5,7 @@ import 'package:mlastro_skymap/sky_map_assets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const String _kFlutterPackageGitHubUrl =
-    'https://github.com/khanhuitse05/stellarium-web-engine-flutter';
+    'https://github.com/saigonastrolab/stellarium-web-engine-flutter';
 const String _kUpstreamGitHubUrl =
     'https://github.com/Stellarium/stellarium-web-engine';
 const String _kGnuAgplUrl = 'https://www.gnu.org/licenses/agpl-3.0.html';
